@@ -1,0 +1,27 @@
+{
+  "name": "tphp/tui",
+  "version": "0.1.0",
+  "type": "ext",
+  "license": "MIT",
+  "ext": {
+    "sources": ["src", "cui/src"],
+    "include": ["cui/include", "cui/src/platform"],
+    "os": {
+      "windows": {
+        "sources": ["cui/backends/win32"],
+        "libs": ["-lgdi32", "-lopengl32", "-limm32", "-ldwmapi", "-lcomdlg32"]
+      },
+      "linux": {
+        "sources": ["cui/backends/x11"],
+        "libs": ["-lX11"]
+      },
+      "darwin": {
+        "sources": ["cui/backends/cocoa"],
+        "cflags": ["-fobjc-arc"],
+        "ldflags": ["-framework", "Cocoa", "-framework", "QuartzCore", "-framework", "OpenGL"]
+      }
+    },
+    "tphp_abi": "0.0.2",
+    "init": "tphp_ext_tphp_tui_init"
+  }
+}
