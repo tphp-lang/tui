@@ -40,6 +40,160 @@ $app->destroy();
   裁剪矩形、split ratio、table/dataGrid/treeTable 的 columns 等跨段暂存（同类 scope 每段至多一层）。
 - 错误一律抛异常（TypeError/ValueError/LogicException），无静默。
 
+## PHP 侧使用指南
+
+### 最小应用
+
+```php
+<?php
+use Tphp\Tui\App;
+
+$app = new App("我的窗口", 800, 600);      // 第4参 true = 隐藏窗口（测试）
+while ($app->frame()) {                    // 渲染上一段 → 等事件 → 开新段；关窗返回 false
+    $app->heading("Hello tui");
+    if ($app->button("退出")) {
+        $app->quit();                      // 下一次 frame() 返回 false，循环自然结束
+    }
+}
+$app->destroy();                           // 释放窗口/纹理（循环退出后必调）
+```
+
+组件调用只发生在 `frame()` 返回 true 的段内（立即模式：每帧重放一遍调用即可，
+不需要手工维护控件树）。**`frame()` 会阻塞等事件**——不要在段外空转调用组件。
+
+### 状态管理四范式
+
+立即模式没有控件对象，**状态全部放在 PHP 变量里**，每帧传入、取回新值：
+
+```php
+// 1) 值型：返回新值（checkbox/toggle/slider/select/tabs/...）
+$agree = false;
+$tab   = 0;
+$vol   = 0.5;
+while ($app->frame()) {
+    $agree = $app->checkbox("同意协议", $agree);
+    $tab   = $app->tabs("main", ["首页", "设置"], $tab);   // 点击后返回新索引
+    $vol   = $app->slider("音量", $vol, 0.0, 1.0);
+}
+
+// 2) buffer 往返：值由 PHP 持有，传入返回出（input/textarea/search/otp/tag/codeEditor）
+$text = "";
+while ($app->frame()) {
+    $text = $app->input("q", $text, 256, ["label" => "搜索"]);
+    if ($app->button("提交") && trim($text) !== "") {
+        do_search($text);
+        $text = "";
+    }
+}
+
+// 3) open 类：传入当前展开态，返回本帧新态（dialog/accordion/tree/banner/...）
+$dialog_open = false;
+while ($app->frame()) {
+    if ($app->button("打开对话框")) $dialog_open = true;
+    if ($app->dialogBegin("标题", $dialog_open)) {
+        $app->text("内容");
+        if ($app->button("关闭")) $dialog_open = false;
+        $app->dialogFooterBegin();
+        $app->button("OK");
+        $app->dialogFooterEnd();
+        $app->dialogEnd();                  // Begin/End 必须配对（关态时封装层自动跳过）
+    }
+}
+
+// 4) scope 成对：xxxBegin / xxxEnd 每帧一一配对（table/scroll/split/menu/...）
+while ($app->frame()) {
+    if ($app->tableBegin("t1", [["title" => "名"], ["title" => "值"]])) {
+        $app->tableRow(false);
+        $app->tableCell();  $app->tableCellText("a");
+        $app->tableCell();  $app->tableCellText("1");
+        $app->tableEnd();
+    }
+}
+```
+
+### 常见场景片段
+
+```php
+// 计数器（点击 +1，按钮返回 bool）
+$count = 0;
+$app->frame();
+if ($app->button("+1")) $count++;
+$app->text("count = " . $count);
+
+// 列表增删（数组即状态）
+$items = ["a", "b"];
+$keep = [];
+foreach ($items as $it) {
+    $on = $app->toggle($it, false);            // 行内勾选态也可放平行数组
+    if (!$app->button("删")) $keep[] = $it;
+}
+$items = $keep;
+
+// 轻反馈：toast 句柄 + alert/banner（返回 open/可见态）
+$th = $app->toast("已保存");
+if ($app->toastActionClicked($th)) { /* ... */ }
+
+// 图表数据 = 每帧构造的 PHP 数组
+$app->lineChart("c1", [
+    ["name" => "访问", "values" => [120.0, 180.0, 150.0], "color" => 0x3B82F6FF],
+], ["height" => 180]);
+
+// 日期：[y, m, d] 三元组往返
+$d = $app->datePicker("d1", [2026, 11, 15]);
+$app->muted("选中 {$d[0]}-{$d[1]}-{$d[2]}");
+```
+
+### 异常处理
+
+所有参数错误都抛异常，可正常 try/catch（tphp 原生异常）：
+
+```php
+try {
+    $app->setAccent(99);                     // ValueError: accent must be in 0..7
+} catch (ValueError $e) {
+    echo $e->getMessage(), "\n";
+}
+```
+
+TypeError（类型不符）/ ValueError（取值越界）/ LogicException（时序错误，如未
+`terminalInit()` 就 `terminal()`）三类；没有静默失败分支。
+
+### 写测试（hidden 窗口骨架）
+
+```php
+<?php
+$fail = 0;
+function check(bool $c, string $n): void {
+    global $fail;
+    if ($c) echo "PASS $n\n"; else { echo "FAIL $n\n"; $fail++; }
+}
+
+$app = new \Tphp\Tui\App("t", 640, 480, true);   // 隐藏窗口
+$app->frame();                                    // 开首段
+// —— 每帧内容：绘制 + 断言返回值 ——
+check($app->button("hi") === false, "idle-not-clicked");
+$app->quit();
+check($app->frame() === false, "loop-stopped");
+$app->destroy();
+echo $fail ? "SMOKE=FAIL\n" : "SMOKE=OK\n";
+exit($fail ? 1 : 0);
+```
+
+运行 `tphp run tests\xxx.php`；整套冒烟用 `tests\run.ps1` 一键驱动。需要测
+点击/翻转等交互时，用 `simulateMouse/simulateMouseButton/simulateKey` 注入 +
+`lastRect()` 定位（时序规则见 [doc/coverage.md](doc/coverage.md) §4）。
+
+### 使用注意
+
+- `xxxBegin()` 返回 false（未展开/不可见）时，对应 `xxxEnd()` **仍要无条件调用**
+  ——封装层已按 SCOPE_IF 语义内部守卫，直接配对写即可。
+- 同一组件每段只调用一次；id 类参数（`input("q",...)` 等）在同帧内保持稳定。
+- 资源型对象（`imageLoad` 的纹理）用完调 `imageDestroy`；窗口结束调 `destroy()`。
+- `terminal()/logView()` 等单例组件需先 `terminalInit()/logInit()`，否则抛
+  LogicException。
+- 需要真实显示窗口时去掉第4参（hidden），关窗即 `frame()` 返回 false。
+
+
 ## API 分组表（310 方法）
 
 ### 核心（tui.c）
