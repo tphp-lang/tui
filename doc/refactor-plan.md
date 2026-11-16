@@ -11,9 +11,10 @@
 `tui_charts.c` 21 / `tui_content.c` 66 / `tui_app.c` 20），
 臃肿只存在于「全部注册到同一个类」。
 
-**方法数口径（全文统一）**：314 = 313 个 `tui_cls_add_native` 普通方法 + 1 个
-`__construct`（经 `tui_cls_add_ctor` 注册）。§3 表格的「方法数」只计普通方法，
-合计 313；探针验收按 313 + 1 = 314 核对，勿漏 ctor。
+**原始基线方法数口径**：314 = 313 个 `tui_cls_add_native` 普通方法 + 1 个
+`__construct`（经 `tui_cls_add_ctor` 注册）。§3「规划目标」表格的「方法数」只计
+普通方法，合计 313 + ctor = 314。**阶段 B 实施后实际为 319**（App + 5 访问器），
+见 §3「实际实施」与附录——本口径仅描述拆分前的基线。
 
 **选定的方案**（在四个候选方案中最终采用）：
 
@@ -66,25 +67,44 @@ C = 文档跟随 B。三阶段各自独立可交付、独立验证，A 不被 B 
 
 ## 3. 类划分
 
-按 C 域文件归属。`tui.c` 的 16 个普通方法按语义拆分：
-容器 3（columnBegin/rowBegin/boxEnd）→ `Layout`；控件 2（button/toggle）→ `Widgets`；
-文本原语 6（heading/secondary/text/label/spacer/separator）**留 `App`**（不设 Core 类，
-见下方说明）；窗口生命周期 5 留 `App`。`tui_app.c` 20 归 `App`。
+### 规划目标（理想终态，未完全达成——见下方「实际实施」）
 
 | 类 | 内容 | 方法数 |
 |---|---|---|
 | `App` | 窗口生命周期 5 + 文本原语 6 + `tui_app.c` 20 | 31 |
-| `Layout` | `begin()/end()` + 全部容器/覆盖层/导航/表格骨架（`tui_layout.c` 120 + `tui.c` 容器 3） | 123 |
+| `Layout` | 全部容器/覆盖层/导航/表格骨架 | 123 |
 | `Form` | 输入、数值、勾选、日期时间 | 33 |
-| `Widgets` | 显示小件、按钮组、文本特效（`tui_widgets.c` 37 + `tui.c` 控件 2） | 39 |
+| `Widgets` | 显示小件、按钮组、文本特效 | 39 |
 | `Charts` | 21 种图表 | 21 |
 | `Content` | 富文本、编辑器、聊天、节点、devtools | 66 |
-| **合计** | 6 个类（App + 5 域类）；普通方法 313，加 `__construct` = **314** | **313** |
+| **合计** | 6 个类；普通方法 313 + `__construct` = 314 | 313 |
 
-**为何不设 `Core` 类**：6 个文本原语单独成类收益极小，却要多一个 `tphp_obj_alloc`
-子对象、一个私有 props 槽、一个 `core()` 访问器和一处注册函数；且 §0 示例与
-README「App/Layout/Form/Widgets/Charts/Content」本就是 6 类，无 Core。留 `App`
-最简。`App`=31 略高于 §1 的「约 30」，可接受（多出的 6 个是 1 行转发的文本原语）。
+### 实际实施（阶段 B 已完成，2026-11-16）
+
+采用**「方法真正迁移到域类 + 测试/示例改用新 API」**策略（用户明确否决双 API 并存）：
+
+| 类 | 实际业务方法数 | 构成 |
+|---|---|---|
+| `App` | 36 | 窗口生命周期 5 + 文本原语 6 + `tui_app.c` 20 + 域访问器 5（另 +1 ctor） |
+| `Layout` | 123 | `tui_layout.c` 120 + `tui.c` 桥接 3（columnBegin/rowBegin/boxEnd） |
+| `Form` | 33 | `tui_form.c` |
+| `Widgets` | 39 | `tui_widgets.c` 37 + `tui.c` 桥接 2（button/toggle） |
+| `Charts` | 21 | `tui_charts.c` |
+| `Content` | 66 | `tui_content.c` |
+
+- **App 已精简**：283 个域方法从 App 移除，实测 `$app->checkbox()`/`$app->lineChart()`
+  抛 Error（不再存在），`$app->form()->checkbox()`/`$app->charts()->lineChart()` 可用。
+- 所有测试（10 个）与 5 个示例已改用新 API；静态 add_native 总数 319（每个方法只注册一次，
+  不再重复挂 App）。
+- `tui.c` 的 5 个方法（3 容器 + 2 控件）实现留在 tui.c，经 bridge 注册函数挂到域类
+  （`tui_register_core_bridge_layout/widgets`）——impl 复用，但**注册位置**已按语义归域。
+- `tui_app.c` 的 20 个（主题/字体/截图/测试面）留在 App，无独立域类。
+
+**否决的替代方案**：
+1. 283 个静态转发 stub 保留旧 API = 臃肿转移、出错面大（用户否决双 API 并存）；
+2. `__call` 动态转发 = 违反严格 AOT「拒绝动态分发」约束。
+
+**为何不设 `Core` 类**：6 个文本原语单独成类收益极小，且 §0/README 本就是 6 类。
 
 ## 4. `LayoutType` 枚举（backed int）
 
@@ -133,68 +153,50 @@ A 不被 B 阻塞——已先交付 A 拿到真 bug 修复，B 可视需要择�
 > - **引用计数纪律（原 A.3）**：仅在 B 建子对象时才有落地点，届时随 B 实现；
 >   核验要点已记入 §7 风险表（alloc rc=1 归返回值 / 多存一处各加 1 / dtor 改写槽为 NULL）。
 
-### 阶段 B：类拆分（有 API 破坏，含兼容层）
+### 阶段 B：类拆分（已完成，App 真正精简）
 
-- [ ] **B.1** C 侧基础设施：`tui_util.h`/`.c` 新增
-      `TObj *tui_make_child(VM*, TObj *parent, TClass *cls)`（照 §7 引用计数纪律：
-      `tphp_obj_alloc` 建，复制父 `app` 属性值，addref 配对）；
-      新增 `int tui_prop_int(TObj*, const char *name)` /
-      `void tui_prop_set_int(...)`（按名读写 int 私有槽，走 `tphp_class_find_prop`）
-- [ ] **B.2** `LayoutType` 枚举：复用 `tui_register_enum`（`src/tui.c:283`），
-      新增 `TUI_LC_LAYOUT_TYPE` 到 `src/tui_util.h`
-- [ ] **B.3** `tphp_ext_tphp_tui_init` 注册 **6 个类**（与 §0/README 一致）：
-      `tui_register_app_class()`（现有，保留 31 方法）+ 5 个域类：
-      `tui_register_layout_class()` / `tui_register_form_class()` /
-      `tui_register_widgets_class()` / `tui_register_charts_class()` /
-      `tui_register_content_class()`
-      - 各域注册内部：`tui_cls_new(名)` → `tui_cls_add_prop(cls,"app")` →
-        `tui_cls_add_prop(cls,"depth")`（Layout 专用）→ 现有 `tui_cls_add_native` 不变 →
-        `tphp_class_register_compile(cls)`
-      - **现有 314 处 `tui_cls_add_native` 调用逐字不动**（= 313 普通方法 + 1 个
-        `__construct`），只改挂载的 `cls`；迁移后 diff 总数须仍为 314
-- [ ] **B.4** 方法归属调整（与 §3 表格一致）：`columnBegin`/`rowBegin`/`boxEnd`
-      （3 个）从 `tui.c` 迁到 `Layout` 注册；`button`/`toggle`（2 个）迁到 `Widgets`；
-      文本原语 6 个留 `App`（不设 Core 类，理由见 §3）。
-      `Layout` 加私有槽 `depth` + begin/end 配平检测（LayoutType 5 种）：
-      begin 校验参数数量 → 开容器 → `depth++`；end `depth==0` 抛
-      `Error: Layout::end() without matching begin()`，否则 `depth--` 并按
-      `LayoutType` 分派到 `cui_box_end`/`cui_scroll_end`/`cui_split_end`；
-      `App::frame()` 收尾检查已缓存 Layout 实例，任一 `depth!=0` 抛
-      `Error: Layout::begin() without matching end()`。
-      已知限制：只保证同一 Layout 实例配平，跨实例误配检测不到。
-- [ ] **B.5** `App` 增加域访问器（带缓存）：
-      `layout(LayoutType): Layout`、`form(): Form`、`widgets(): Widgets`、
-      `charts(): Charts`、`content(): Content`
-      - `App` 新增私有槽保存已创建实例（TObj 引用），首次创建并缓存，
-        后续返回同一实例（避免每帧分配，也让 depth 计数跨帧配平）
-      - `destroy()` 时释放这些引用（照 §7 引用计数纪律，避免二次 release）
-- [ ] **B.6** `App` 保留全部旧方法作为薄转发，标记 `@deprecated`。
-      现有 7 个冒烟 + 5 个示例**零改动先跑绿**（关键中途安全网）
-- [ ] **B.7** 改写示例（hello → todo → form → dashboard → markdown）与 `tests/` 到新 API
-- [ ] **B.8** 移除 `App` 上的转发方法，完成最终形态
-- [ ] **B.9**（条件项）若 B 引入真正多线程使用，再给 10 组文件级静态补 `_Thread_local`
-      （2 文件：`tui_layout.c` 的 `g_split_ratio`/`g_*_on`(13)/`g_reorder`/`g_swipe_*`/
-      `g_tcols`/`g_gcols`/`g_tnodes`，`tui_content.c` 的 `g_term_*`/`g_log_*`/`g_nodeed_on`）；
-      单线程下无触发场景，不做（理由见 §5 阶段 A 的 A.2 移出说明）
+> 用户明确否决双 API 并存，故按「迁移 + 测试改写」完成，非早期的「App 保留全部」增量方案。
+
+- [x] **B.1** C 侧基础设施：`tui_cls_new`/`tui_cls_add_ctor`/`tui_cls_add_prop` 迁至
+      `tui_util.c/.h`；`tui_make_child`（复制 app 句柄 + rc 转移）、
+      `tui_prop_int`/`tui_prop_set_int`、`tui_depth_inc`/`tui_depth_dec` 均已实现。
+- [x] **B.2** `LayoutType` 枚举（5 case）已注册，`TUI_LC_LAYOUT_TYPE` 宏已加。
+- [x] **B.3** 注册 6 个类：App（36 业务方法 + ctor）+ Layout 123 / Form 33 /
+      Widgets 39 / Charts 21 / Content 66。静态 add_native 总数 319，每方法只注册一次。
+- [x] **B.4** `Layout` 的 `depth` begin/end 配平检测：Layout 加 `depth` 私有槽，
+      5 种容器 begin 自增、end 自减并校验；`frame()` 入口检查上一段 depth 归零，
+      失配抛 Error 并提示「window state corrupted; destroy and recreate」（CUI node 栈
+      已失衡、不可恢复）。**注意**：CUI 每帧重置 node 栈（`cui_core.c:788-790`），
+      故此项是把难查的视觉错乱变显式错误，非 bug 修复。`tests/smoke-depth.php` 专测通过。
+- [x] **B.5** `App` 域访问器 `layout(LayoutType)/form()/widgets()/charts()/content()`
+      带缓存（5 个 dom 槽）+ `destroy`/`dtor` 释放（§7 纪律）。`smoke-domain.php` 通过。
+- [x] **B.7** 7 个冒烟 + 5 个示例（hello/todo/form/dashboard/markdown）全部改写为新 API；
+      自动改写脚本按「方法注册文件→域」映射，0 残留旧 API 调用（已扫描验证）。
+- [x] **B.8** 精简 `App`：283 个域方法从 App 移除。实测 `$app->checkbox()` 抛 Error、
+      `$app->form()->checkbox()` 可用、App 核心 frame/quit 正常。用户否决双 API 并存，
+      未采用转发 stub；`__call` 因违反严格 AOT 被排除。
+- [ ] **B.9**（条件项，未做）若引入真正多线程使用，再给 10 组静态补 `_Thread_local`；
+      单线程下无触发场景（理由见阶段 A 的 A.2 移出说明）。
 
 ### 阶段 C：文档重写（跟随 B 完成）
 
-- [ ] **C.1** 重写 `doc/API.md`（6 个类的逐方法表）
-- [ ] **C.2** 更新 `README.md` 与 `doc/coverage.md`（反映 6 类 API 与新调用形态）
+- [x] **C.1** 重写 `doc/API.md`（6 个类的逐方法表 + 3 个枚举，已按方法注册文件自动分组）
+- [x] **C.2** 更新 `README.md` 与 `doc/coverage.md`（反映 6 类 API 与新调用形态）
 
 ## 6. 验证清单
 
 | 阶段 | 检查项 | 方法 | 通过标准 |
 |---|---|---|---|
-| A/B/C | 编译 | `clang -c` 每个改动文件 | 零 warning |
-| A/B/C | 冒烟 | `tests\run.ps1` | 原 7 冒烟全绿（**A 后必跑一次**，B 前后各跑一次）；A 加专测后为 8/8 |
+| A/B/C | 编译 | `clang -c` 每个改动文件 | 零 warning（已实测重链成功） |
+| A/B/C | 冒烟 | `tests\run.ps1` | **10/10 PASS**（原 7 + scopeif + domain + depth，已实测） |
 | A/B/C | 引擎 | `tphp.exe test tests\lib` | 29 passed |
-| **A** | SCOPE_IF 漏 End（14 对） | `tests/smoke-scopeif.php`（dialog 开态漏 End） | 抛 `Error` 且消息含配对名；catch 后可恢复；关态 begin 无误报。**已实现并 8/8 全绿** |
-| **A** | 回归 | 现有 7 冒烟全绿 + 各域一帧绘制 | 与改动前行为一致 |
-| **B** | 类注册 | 探针统计各类方法数 | 与 §3 表格一致：6 类，普通方法 313 + ctor 1 = 314 |
-| **B** | 容器失配（LayoutType 5 种） | 新测试：漏 `end()` / 多 `end()` | 抛 `Error`，不静默错位 |
-| **B** | LayoutType 分派 | 新测试：5 类型各画一次 | 无崩溃、节点树正常 |
-| A/B/C | CJK 回归 | `smoke.php` 断行断言 | 仍 PASS |
+| A/B/C | 编译真实性 | 重链后确认无 `compile failed` | **曾踩坑**：早期编译失败但输出被吞，跑的是旧二进制——现已核对重链输出 |
+| **A** | SCOPE_IF 漏 End（14 对） | `tests/smoke-scopeif.php` | 抛 `Error` 含配对名；关态无误报。**已实现** |
+| **B** | 域访问器 + 新 API | `tests/smoke-domain.php` | 6 类 + LayoutType；访问器类型/方法/缓存正确。**已实现** |
+| **B** | 类注册 | 静态统计 + 运行时探针 | 6 类；App 36 业务方法+ctor、Layout 123/Form 33/Widgets 39/Charts 21/Content 66；add_native 总 319（每方法一次） |
+| **B** | 容器失配（LayoutType 5 种） | `tests/smoke-depth.php` | 漏 End/多 End 抛 Error、配对无误报。**已实现** |
+| **B** | App 精简 | 运行时探针 | `$app->checkbox()` 抛 Error、`$app->form()->checkbox()` 可用。**已实测** |
+| A/B/C | CJK 回归 | `smoke.php` 断行断言 | 仍 PASS（10/10 含此） |
 
 ## 7. 风险与对策
 
@@ -203,9 +205,14 @@ A 不被 B 阻塞——已先交付 A 拿到真 bug 修复，B 可视需要择�
 | 缓存槽与 props 布局冲突 | 按名查找（`tphp_class_find_prop`），不硬编码槽号 |
 | 子对象在 `destroy()` 后使用 | `tui_need_ui` 已有 "window is already destroyed" 抛错 |
 | `Layout::end()` 对 scroll 误调 `cui_box_end` | 按 `LayoutType` 分派，补专测 |
-| 314 处注册语句迁移易漏 | 阶段 B.6 转发层让旧测试先全绿；迁移后 diff 方法数（313 普通 + 1 ctor） |
-| 跨 Layout 实例误配检测不到 | 记为已知限制；每实例独立计数已覆盖主要误用 |
+| 注册语句迁移易漏 | 283 方法从 App 摘除、5 个用 bridge 挂域类；实测 add_native 319、10/10 全绿 |
+| 跨 Layout 实例误配检测不到 | 记为已知限制；每实例独立 depth 计数已覆盖主要误用 |
+| **编译失败被吞 → 跑旧二进制假绿** | 曾踩坑：PowerShell 管道把 `compile failed` 当普通错误流，误判成功。
+  对策：重链后必须确认输出含 `Linked N ext package(s)` 且无 `compile failed`，
+  再用新探针验证新行为（如 `$app->checkbox()` 抛错） |
 | SCOPE_IF 漏 End 致随机 AV | 用现有 `g_*_on` 标记统一做失配计数（§5.A.1），补 14 对专测 |
+| Layout 漏 End 视觉错乱 | depth 配平检测（§5.B.4）；失配即报「window corrupted」，因 CUI node 栈失衡不可恢复，
+  须销毁重建实例；专测每场景独立 App |
 | 建子对象时引用计数错配致 UAF | alloc rc=1 归 native 返回值、不再 addref（`vm.c:1587-1590`）；多存一处各加 1（反面 `worker.c:693-700`）；写 props 用 `addref(new)/release(old)/slot=new`；native_dtor 手动 release 后须改写槽为 NULL（`tui.c:50-54`） |
 | 同线程多窗口交错画同类型容器 | `_Thread_local` **不覆盖此场景**；文件级 `g_*_on` 仍进程共享。
   缓解：域对象经各自 App 派生，但静态标记按窗口归属是 TODO。当前
@@ -219,8 +226,11 @@ A 不被 B 阻塞——已先交付 A 拿到真 bug 修复，B 可视需要择�
    避免多窗口歧义
 3. `LayoutType` 只覆盖 5 种可统一 begin/end 的容器；其余容器走独立命名方法，
    但 SCOPE_IF 14 对仍须纳入失配检测（§5.A.1）
-4. 阶段 B 有破坏性；若只想要 bug 修复、不想要 API 变更，交付阶段 A 即可停止
+4. 阶段 B 有破坏性（旧 API 已移除，测试/示例必须同步迁移）；若只要 bug 修复，
+   交付阶段 A 即可停止
 5. 并行多窗口（同线程交错绘制）不在本版范围，10 组文件级静态仍进程共享（§7）
+6. 域方法实现可留在原 C 文件（tui.c 的 5 个桥接方法），仅**注册位置**按语义归域；
+   不要求物理迁移 .c 文件
 
 ## 9. 不做
 
@@ -235,21 +245,27 @@ A 不被 B 阻塞——已先交付 A 拿到真 bug 修复，B 可视需要择�
    ```powershell
    # cwd = tui 包根
    powershell -ExecutionPolicy Bypass -File tests\run.ps1
-   # 期望 8/8 PASS（原 7 冒烟 + 阶段 A 的 smoke-scopeif.php）
+   # 期望 10/10 PASS（原 7 + scopeif + domain + depth 探针）
    ```
 3. 若 `build/tphp.exe` 与源码不同步，先重链：
    ```powershell
    cd ..\TinyPHP.rt\build
    $env:PATH = 'C:\env\msys2\clang64\bin;' + $env:PATH
    .\tphp.exe ext --add C:\project\tphp\tui
+   # 必须确认输出含 "Linked N ext package(s)" 且无 "compile failed"！
+   # 曾踩坑：编译错误被 PowerShell 当普通错误流吞掉，跑的是旧二进制假绿。
    ```
 4. 从第一个未勾选项继续
 
 ## 附：当前基线（2026-11-16）
 
-- 方法总数 314（313 普通 + 1 `__construct`），全部注册在 `Tphp\Tui\App`；
-  已实测 `tui_cls_add_native(cls,...)` 调用 314 处、`tui_*.c` 域注册函数 6 个（无 Core）
-- 两个枚举：`ButtonVariant`(7 case)、`FontRole`(5 case)
-- 冒烟 7/7 PASS，引擎 29 passed（**阶段 A 后**：新增 `smoke-scopeif.php`，8/8 PASS）
+- **阶段 B 后（终态）**：6 类，App 已精简为 36 业务方法+ctor
+  （生命周期 5 + 文本原语 6 + app层 20 + 访问器 5）；Layout 123（含桥接 3）、
+  Form 33、Widgets 39（含桥接 2）、Charts 21、Content 66。总 add_native 319（每方法一次）。
+  原始基线是 App 314 方法。旧 API 已从 App 移除，测试/示例全部改用新 API。
+- 三个枚举：`ButtonVariant`(7)、`FontRole`(5)、`LayoutType`(5)
+- 冒烟 **10/10 PASS**（原 7 + scopeif + domain + depth），引擎 29 passed
 - 已有 CJK 支持：`fontLoad`/`fontLoadSystem`/`fontSetRole`/`fontAddFallback`
   + CUI 断行 CJK 处理（`cui_text.c`）
+- 阶段 C 已完成：README.md / API.md（6 类分组 + 3 枚举）/ coverage.md 均已更新到终态
+- 剩余条件项：B.9 TLS（单线程无触发场景，未做）

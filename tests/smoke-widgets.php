@@ -16,59 +16,59 @@ $app->frame();
 $app->heading("Widgets smoke");
 
 // 文本扩展
-$app->muted("muted text");
-$app->code("echo 1;");
-$app->kbd("Ctrl");
-check($app->link("click me") === false, "link-bool");
-$app->icon("home", 16, 0xFF3B82F6);
-$app->tooltip("tip");
-$app->gap(8);
+$app->widgets()->muted("muted text");
+$app->widgets()->code("echo 1;");
+$app->widgets()->kbd("Ctrl");
+check($app->widgets()->link("click me") === false, "link-bool");
+$app->widgets()->icon("home", 16, 0xFF3B82F6);
+$app->widgets()->tooltip("tip");
+$app->widgets()->gap(8);
 
 // 卡片
-$app->cardBegin();
+$app->widgets()->cardBegin();
 $app->text("inside card");
-$app->cardEnd();
+$app->widgets()->cardEnd();
 
 // 徽章头像
-$app->badge("NEW");
-$app->avatar("Ada");
-$app->avatarGroup(["A", "B", "C", "D"], 3, 32);
+$app->widgets()->badge("NEW");
+$app->widgets()->avatar("Ada");
+$app->widgets()->avatarGroup(["A", "B", "C", "D"], 3, 32);
 
 // 进度反馈
-$app->progress(0.42);
-$app->progressRing("CPU", 0.66, 48);
-$app->spinner(24);
-$app->skeleton(20);
-$app->loader();
-check($app->emptyState("Nothing here") === false, "emptyState-bool");
-$app->metric("Requests", "1.2k");
-$app->meter("Disk", 60, 100, "%");
+$app->widgets()->progress(0.42);
+$app->widgets()->progressRing("CPU", 0.66, 48);
+$app->widgets()->spinner(24);
+$app->widgets()->skeleton(20);
+$app->widgets()->loader();
+check($app->widgets()->emptyState("Nothing here") === false, "emptyState-bool");
+$app->widgets()->metric("Requests", "1.2k");
+$app->widgets()->meter("Disk", 60, 100, "%");
 
 // 按钮族
-check($app->iconButton("gear") === false, "iconButton-bool");
-check($app->copyButton("cb1", "hello") === false, "copyButton-bool");
-check($app->holdButton("Hold me") === false, "holdButton-bool");
-check($app->confirmButton("Delete") === false, "confirmButton-bool");
-$app->buttonGroupBegin();
-$app->button("One");
-$app->button("Two");
-$app->buttonGroupEnd();
-check($app->splitButton("Export", ["CSV", "PDF"]) === -1, "splitButton-int");
-check($app->statusButton("Build", 2) === false, "statusButton-bool");
-check($app->reactions("rx1", [
+check($app->widgets()->iconButton("gear") === false, "iconButton-bool");
+check($app->widgets()->copyButton("cb1", "hello") === false, "copyButton-bool");
+check($app->widgets()->holdButton("Hold me") === false, "holdButton-bool");
+check($app->widgets()->confirmButton("Delete") === false, "confirmButton-bool");
+$app->widgets()->buttonGroupBegin();
+$app->widgets()->button("One");
+$app->widgets()->button("Two");
+$app->widgets()->buttonGroupEnd();
+check($app->widgets()->splitButton("Export", ["CSV", "PDF"]) === -1, "splitButton-int");
+check($app->widgets()->statusButton("Build", 2) === false, "statusButton-bool");
+check($app->widgets()->reactions("rx1", [
     ["icon" => "\u{1F44D}", "count" => 3, "active" => false],
     ["icon" => "\u{2764}", "count" => 1],
 ]) === -1, "reactions-int");
 
 // 文本特效
-$app->shimmerText("Loading...");
-check($app->typewriter("tw1", "hello world") === false, "typewriter-bool");
-$app->textReveal("tr1", "revealed");
-$app->wordRotate("wr1", ["alpha", "beta", "gamma"], 2.0);
-$app->numberRoll("nr1", "42");
-$app->gradientText("gradient");
-$app->counter("cnt1", 1234);
-$app->ticker("tk1", [
+$app->widgets()->shimmerText("Loading...");
+check($app->widgets()->typewriter("tw1", "hello world") === false, "typewriter-bool");
+$app->widgets()->textReveal("tr1", "revealed");
+$app->widgets()->wordRotate("wr1", ["alpha", "beta", "gamma"], 2.0);
+$app->widgets()->numberRoll("nr1", "42");
+$app->widgets()->gradientText("gradient");
+$app->widgets()->counter("cnt1", 1234);
+$app->widgets()->ticker("tk1", [
     ["label" => "BTC", "value" => "67,240", "delta" => 1.2, "lower_is_better" => false],
     ["label" => "Latency", "value" => "12ms", "delta" => -0.4, "lower_is_better" => true],
 ]);

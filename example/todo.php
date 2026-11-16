@@ -18,8 +18,8 @@ while ($app->frame()) {
     $app->heading("TODO");
     $app->secondary(count($items) . " 项 · " . $done . " 完成");
 
-    $draft = $app->input("new-item", $draft, 256, ["label" => "新任务", "placeholder" => "输入后点添加"]);
-    if ($app->button("添加") && trim($draft) !== "") {
+    $draft = $app->form()->input("new-item", $draft, 256, ["label" => "新任务", "placeholder" => "输入后点添加"]);
+    if ($app->widgets()->button("添加") && trim($draft) !== "") {
         $items[] = trim($draft);
         $states[] = false;
         $draft = "";
@@ -30,8 +30,8 @@ while ($app->frame()) {
     $keep_items = [];
     $keep_states = [];
     for ($i = 0; $i < count($items); $i++) {
-        $states[$i] = $app->toggle($items[$i], $states[$i]);
-        if (!$app->button("删 " . ($i + 1))) {
+        $states[$i] = $app->widgets()->toggle($items[$i], $states[$i]);
+        if (!$app->widgets()->button("删 " . ($i + 1))) {
             $keep_items[] = $items[$i];
             $keep_states[] = $states[$i];
         }
@@ -40,11 +40,11 @@ while ($app->frame()) {
     $states = $keep_states;
 
     if (count($items) === 0) {
-        $app->emptyState("没有任务，加一条吧");
+        $app->widgets()->emptyState("没有任务，加一条吧");
     }
 
-    $app->gap(8);
-    if ($app->button("清空")) {
+    $app->widgets()->gap(8);
+    if ($app->widgets()->button("清空")) {
         $items = [];
         $states = [];
     }

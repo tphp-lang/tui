@@ -16,98 +16,98 @@ $app->frame();
 $app->heading("Container smoke");
 
 // 容器
-$app->boxBegin(4, 4);
+$app->layout()->boxBegin(4, 4);
 $app->text("box content");
-$app->boxEnd();
-$app->scrollBegin("sc1", false);
+$app->layout()->boxEnd();
+$app->layout()->scrollBegin("sc1", false);
 $app->text("scroll content");
-$app->scrollEnd();
-$app->scrollTo("sc1", 0);
-$app->splitBegin("sp1", 0.5);
-$app->columnBegin(0, 0);
+$app->layout()->scrollEnd();
+$app->layout()->scrollTo("sc1", 0);
+$app->layout()->splitBegin("sp1", 0.5);
+$app->layout()->columnBegin(0, 0);
 $app->text("left");
-$app->boxEnd();
-$app->splitNext();
-$app->columnBegin(0, 0);
+$app->layout()->boxEnd();
+$app->layout()->splitNext();
+$app->layout()->columnBegin(0, 0);
 $app->text("right");
-$app->boxEnd();
-check($app->splitEnd() === 0.5, "split-ratio");
+$app->layout()->boxEnd();
+check($app->layout()->splitEnd() === 0.5, "split-ratio");
 
 // 导航
-check($app->tabs("tb1", ["Main", "Logs"], 0) === 0, "tabs-index");
-check($app->navItem("Dashboard") === false, "navItem-bool");
-$app->navSection("System");
-check($app->breadcrumb(["Home", "Settings", "Users"]) === -1, "breadcrumb-int");
-check($app->pagination("pg1", 0, 5) === 0, "pagination-page");
-$app->stepper(["Plan", "Build", "Ship"], 1);
-$pb = $app->pathBar("pb1", ["src", "core", "vm.c"]);
+check($app->layout()->tabs("tb1", ["Main", "Logs"], 0) === 0, "tabs-index");
+check($app->layout()->navItem("Dashboard") === false, "navItem-bool");
+$app->layout()->navSection("System");
+check($app->layout()->breadcrumb(["Home", "Settings", "Users"]) === -1, "breadcrumb-int");
+check($app->layout()->pagination("pg1", 0, 5) === 0, "pagination-page");
+$app->layout()->stepper(["Plan", "Build", "Ship"], 1);
+$pb = $app->layout()->pathBar("pb1", ["src", "core", "vm.c"]);
 check(is_array($pb) && array_key_exists("clicked", $pb) && array_key_exists("submitted", $pb), "pathBar-result");
-check($app->pathBarMenu("pb1") === -1, "pathBarMenu-int");
-$app->pathBarMenuEnd();
-check($app->toc("toc1", [
+check($app->layout()->pathBarMenu("pb1") === -1, "pathBarMenu-int");
+$app->layout()->pathBarMenuEnd();
+check($app->layout()->toc("toc1", [
     ["title" => "Intro", "anchor" => "intro", "level" => 0],
     ["title" => "API", "anchor" => "api", "level" => 1],
 ]) >= -1, "toc-int");
-$app->tocAnchor("intro");
+$app->layout()->tocAnchor("intro");
 
 // 覆盖层
-check($app->popoverBegin("po1") === false, "popoverBegin-bool");
-$app->popoverEnd();
-$app->popoverOpen("po1");
-$app->popoverClose("po1");
-$app->popoverToggle("po1");   // 关→开
-check($app->popoverIsOpen("po1") === true, "popoverIsOpen-after-toggle");
-check($app->menuBegin("Menu") === false, "menuBegin-bool");
-$app->menuEnd();
-$app->menuItem("Open");
-$app->menuSeparator();
-$app->menuLabel("Recent");
-check($app->contextMenuBegin("cm1") === false, "contextMenu-bool");
-$app->contextMenuEnd();
-$db = $app->dialogBegin("Confirm", true);
+check($app->layout()->popoverBegin("po1") === false, "popoverBegin-bool");
+$app->layout()->popoverEnd();
+$app->layout()->popoverOpen("po1");
+$app->layout()->popoverClose("po1");
+$app->layout()->popoverToggle("po1");   // 关→开
+check($app->layout()->popoverIsOpen("po1") === true, "popoverIsOpen-after-toggle");
+check($app->layout()->menuBegin("Menu") === false, "menuBegin-bool");
+$app->layout()->menuEnd();
+$app->layout()->menuItem("Open");
+$app->layout()->menuSeparator();
+$app->layout()->menuLabel("Recent");
+check($app->layout()->contextMenuBegin("cm1") === false, "contextMenu-bool");
+$app->layout()->contextMenuEnd();
+$db = $app->layout()->dialogBegin("Confirm", true);
 check($db === true, "dialog-open-true");
-$app->dialogFooterBegin();
-$app->button("OK");
-$app->dialogFooterEnd();
-$app->dialogEnd();
-check($app->sheetBegin("Sheet", false) === false, "sheet-false");
-$app->sheetEnd();
-$th = $app->toast("Saved");
+$app->layout()->dialogFooterBegin();
+$app->widgets()->button("OK");
+$app->layout()->dialogFooterEnd();
+$app->layout()->dialogEnd();
+check($app->layout()->sheetBegin("Sheet", false) === false, "sheet-false");
+$app->layout()->sheetEnd();
+$th = $app->layout()->toast("Saved");
 check(is_int($th) && $th > 0, "toast-handle");
-check($app->toastActionClicked($th) === false, "toastAction-bool");
-$app->toastDismiss($th);
-check($app->alert("Heads up") === true, "alert-visible");   // 未 dismiss 前返回 true
-check($app->banner("Update available", true) === true, "banner-open");
-check($app->hoverCardBegin("hc1") === false, "hoverCard-bool");
-$app->hoverCardEnd();
-check($app->userMenuBegin("kllxs") === false, "userMenu-bool");
-$app->userMenuEnd();
-check($app->speedDial("sd1", [
+check($app->layout()->toastActionClicked($th) === false, "toastAction-bool");
+$app->layout()->toastDismiss($th);
+check($app->layout()->alert("Heads up") === true, "alert-visible");   // 未 dismiss 前返回 true
+check($app->layout()->banner("Update available", true) === true, "banner-open");
+check($app->layout()->hoverCardBegin("hc1") === false, "hoverCard-bool");
+$app->layout()->hoverCardEnd();
+check($app->layout()->userMenuBegin("kllxs") === false, "userMenu-bool");
+$app->layout()->userMenuEnd();
+check($app->layout()->speedDial("sd1", [
     ["icon" => "plus", "label" => "New"],
     ["icon" => "edit", "label" => "Edit"],
 ]) === -1, "speedDial-int");
-$app->spotlightBegin("sp-light");
+$app->layout()->spotlightBegin("sp-light");
 $app->text("spotlit");
-$app->spotlightEnd();
+$app->layout()->spotlightEnd();
 
 // 列表/树
-check($app->accordionBegin("Advanced", false) === false, "accordion-false");
-$app->accordionEnd();
-check($app->treeBegin("Root", true) === true, "tree-open");
-check($app->treeClicked() === false, "treeClicked-bool");
-$app->treeEnd();
-check($app->listItem("Row 1") === false, "listItem-bool");
-$vl = $app->virtualList("vl1", 100, 24, 200);
+check($app->layout()->accordionBegin("Advanced", false) === false, "accordion-false");
+$app->layout()->accordionEnd();
+check($app->layout()->treeBegin("Root", true) === true, "tree-open");
+check($app->layout()->treeClicked() === false, "treeClicked-bool");
+$app->layout()->treeEnd();
+check($app->layout()->listItem("Row 1") === false, "listItem-bool");
+$vl = $app->layout()->virtualList("vl1", 100, 24, 200);
 check(is_array($vl) && array_key_exists("first", $vl) && array_key_exists("last", $vl), "virtualList-range");
-$app->virtualListEnd();
-$app->swipeItemBegin("sw1", [["icon" => "trash", "label" => "Delete"]], [["icon" => "pin", "label" => "Pin"]]);
+$app->layout()->virtualListEnd();
+$app->layout()->swipeItemBegin("sw1", [["icon" => "trash", "label" => "Delete"]], [["icon" => "pin", "label" => "Pin"]]);
 $app->text("swipe row");
-check($app->swipeItemEnd() === -1, "swipeItem-int");
-$app->reorderBegin("ro1", [2, 0, 1]);
+check($app->layout()->swipeItemEnd() === -1, "swipeItem-int");
+$app->layout()->reorderBegin("ro1", [2, 0, 1]);
 $app->text("a");
 $app->text("b");
 $app->text("c");
-$ro = $app->reorderEnd();
+$ro = $app->layout()->reorderEnd();
 check(is_array($ro) && $ro === [2, 0, 1], "reorder-roundtrip");
 
 // 表格
@@ -116,106 +116,106 @@ $cols = [
     ["title" => "Role", "align" => 2],
     ["title" => "Age"],
 ];
-check($app->tableBegin("t1", $cols) === true, "tableBegin-true");
+check($app->layout()->tableBegin("t1", $cols) === true, "tableBegin-true");
 for ($i = 0; $i < 3; $i++) {
-    $app->tableRow($i === 0);
-    $app->tableCell();
-    $app->tableCellText("row$i");
-    $app->tableCell();
-    $app->tableCellText("dev");
-    $app->tableCell();
-    $app->tableCellText((string)(20 + $i));
+    $app->layout()->tableRow($i === 0);
+    $app->layout()->tableCell();
+    $app->layout()->tableCellText("row$i");
+    $app->layout()->tableCell();
+    $app->layout()->tableCellText("dev");
+    $app->layout()->tableCell();
+    $app->layout()->tableCellText((string)(20 + $i));
 }
-$app->tableEnd();
-$dg = $app->dataGridBegin("dg1", $cols, 50);
+$app->layout()->tableEnd();
+$dg = $app->layout()->dataGridBegin("dg1", $cols, 50);
 check(is_array($dg) && array_key_exists("first", $dg), "dataGridBegin-range");
 foreach (range($dg["first"], $dg["last"]) as $r) {
-    $app->dataGridRow($r);
-    $app->dataGridCell();
-    $app->dataGridCellText("v$r");
-    $app->dataGridCell();
-    $app->dataGridCellText((string)$r);
-    $app->dataGridCell();
-    $app->dataGridCellText((string)($r * 2));
+    $app->layout()->dataGridRow($r);
+    $app->layout()->dataGridCell();
+    $app->layout()->dataGridCellText("v$r");
+    $app->layout()->dataGridCell();
+    $app->layout()->dataGridCellText((string)$r);
+    $app->layout()->dataGridCell();
+    $app->layout()->dataGridCellText((string)($r * 2));
 }
-$app->dataGridEnd();
-check($app->treeCell("folder", 0, true, false) === false, "treeCell-false");
+$app->layout()->dataGridEnd();
+check($app->layout()->treeCell("folder", 0, true, false) === false, "treeCell-false");
 $nodes = [
     ["parent" => -1, "first_child" => 1, "next_sibling" => -1, "flags" => 0],
     ["parent" => 0, "first_child" => -1, "next_sibling" => 2, "flags" => 0],
     ["parent" => 0, "first_child" => -1, "next_sibling" => -1, "flags" => 0],
 ];
-$app->treeTableBegin("tt1", [["title" => "Tree"], ["title" => "Value"]], $nodes);
-while (($node = $app->treeTableRow()) >= 0) {
-    $app->treeTableName("node$node");
-    $app->tableCell();
-    $app->tableCellText("v$node");
+$app->layout()->treeTableBegin("tt1", [["title" => "Tree"], ["title" => "Value"]], $nodes);
+while (($node = $app->layout()->treeTableRow()) >= 0) {
+    $app->layout()->treeTableName("node$node");
+    $app->layout()->tableCell();
+    $app->layout()->tableCellText("v$node");
 }
-$tev = $app->treeTableEnd();
+$tev = $app->layout()->treeTableEnd();
 check(is_array($tev) && array_key_exists("activated", $tev), "treeTableEnd-events");
-$fb = $app->filterBar("fb1", [
+$fb = $app->layout()->filterBar("fb1", [
     ["name" => "Status", "options" => ["open", "closed"]],
     ["name" => "Owner", "icon" => "user"],
 ], [0, 0], "");
 check(is_array($fb) && array_key_exists("changed", $fb) && array_key_exists("selected", $fb), "filterBar-result");
 
 // 工具条/状态栏/菜单栏
-$app->toolbarBegin("tl1");
-$app->toolbarButton("save");
-$app->toolbarSeparator();
-$app->toolbarSpacer();
-$app->toolbarButton("settings");
-$app->toolbarEnd();
-$app->statusBarBegin("sb1");
-$app->statusBarSpacer();
-$app->statusBarText("Ready");
-check($app->statusBarItem("git: main") === false, "statusBarItem-bool");
-$app->statusBarProgress(0.5);
-$app->statusBarEnd();
-$app->menuBarBegin("mb1");
-check($app->menuBarMenuBegin("File") === false, "menuBarMenu-bool");
-$app->menuItem("New");
-$app->menuBarMenuEnd();
-$app->menuBarEnd();
+$app->layout()->toolbarBegin("tl1");
+$app->layout()->toolbarButton("save");
+$app->layout()->toolbarSeparator();
+$app->layout()->toolbarSpacer();
+$app->layout()->toolbarButton("settings");
+$app->layout()->toolbarEnd();
+$app->layout()->statusBarBegin("sb1");
+$app->layout()->statusBarSpacer();
+$app->layout()->statusBarText("Ready");
+check($app->layout()->statusBarItem("git: main") === false, "statusBarItem-bool");
+$app->layout()->statusBarProgress(0.5);
+$app->layout()->statusBarEnd();
+$app->layout()->menuBarBegin("mb1");
+check($app->layout()->menuBarMenuBegin("File") === false, "menuBarMenu-bool");
+$app->layout()->menuItem("New");
+$app->layout()->menuBarMenuEnd();
+$app->layout()->menuBarEnd();
 
 // 停靠
-$app->dockBegin("dk1");
-check($app->dockItem("home", "Home") === false, "dockItem-bool");
-$app->dockSeparator();
-$app->dockEnd();
-$app->dockspaceBegin("ds1");
-$app->dockPanelBegin("Inspector", true);
+$app->layout()->dockBegin("dk1");
+check($app->layout()->dockItem("home", "Home") === false, "dockItem-bool");
+$app->layout()->dockSeparator();
+$app->layout()->dockEnd();
+$app->layout()->dockspaceBegin("ds1");
+$app->layout()->dockPanelBegin("Inspector", true);
 $app->text("panel");
-$app->dockPanelEnd();
-$app->dockspaceEnd();
-$dockJson = $app->dockSave("ds1");
+$app->layout()->dockPanelEnd();
+$app->layout()->dockspaceEnd();
+$dockJson = $app->layout()->dockSave("ds1");
 check(is_string($dockJson) && strlen($dockJson) > 0, "dockSave-string");
-check($app->dockLoad("ds1", $dockJson) === true, "dockLoad-bool");
+check($app->layout()->dockLoad("ds1", $dockJson) === true, "dockLoad-bool");
 
 // 轮播/看板/卡片栈
-check($app->carouselBegin("cr1", 3, 0) === 0, "carousel-index");
-$app->carouselSlideBegin();
+check($app->layout()->carouselBegin("cr1", 3, 0) === 0, "carousel-index");
+$app->layout()->carouselSlideBegin();
 $app->text("slide 1");
-$app->carouselSlideEnd();
-$app->carouselEnd();
-$app->kanbanBegin("kb1");
-$app->kanbanColumnBegin("Todo", 1);
-$app->kanbanCardBegin(101);
+$app->layout()->carouselSlideEnd();
+$app->layout()->carouselEnd();
+$app->layout()->kanbanBegin("kb1");
+$app->layout()->kanbanColumnBegin("Todo", 1);
+$app->layout()->kanbanCardBegin(101);
 $app->text("task A");
-$app->kanbanCardEnd();
-$app->kanbanColumnEnd();
-$move = $app->kanbanEnd();
+$app->layout()->kanbanCardEnd();
+$app->layout()->kanbanColumnEnd();
+$move = $app->layout()->kanbanEnd();
 check($move === null || is_array($move), "kanbanEnd-null-or-array");
-check($app->expandableCardBegin("More", false) === false, "expandableCard-false");
-$app->expandableCardEnd();
-$app->cardStackBegin("cs1", 2);
-$app->cardStackItemBegin(0);
+check($app->layout()->expandableCardBegin("More", false) === false, "expandableCard-false");
+$app->layout()->expandableCardEnd();
+$app->layout()->cardStackBegin("cs1", 2);
+$app->layout()->cardStackItemBegin(0);
 $app->text("stack 1");
-$app->cardStackItemEnd();
-$app->cardStackItemBegin(1);
+$app->layout()->cardStackItemEnd();
+$app->layout()->cardStackItemBegin(1);
 $app->text("stack 2");
-$app->cardStackItemEnd();
-$app->cardStackEnd();
+$app->layout()->cardStackItemEnd();
+$app->layout()->cardStackEnd();
 
 $app->quit();
 check($app->frame() === false, "loop-stopped");

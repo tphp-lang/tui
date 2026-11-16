@@ -44,6 +44,14 @@ extern void tui_register_charts(TClass *cls);
 extern void tui_register_content(TClass *cls);
 extern void tui_register_app_layer(TClass *cls);
 
+/* 阶段 B：5 个域类，全局单例模板（编译期注册一次；子对象经 tui_make_child 建）。
+ * App 上仍挂全部方法（旧 API 零改动），域类挂同一批 impl（新 API）。 */
+static TClass *g_layout_cls, *g_form_cls, *g_widgets_cls,
+              *g_charts_cls, *g_content_cls;
+
+/* 供 App 域访问器取类模板（B.5，定义在下方 domain accessor 处使用） */
+TClass *tui_domain_cls(int which);
+
 /* ---- App 句柄（props[0] = TV_INT 地址；
  *      tui_app_of / tui_need_app / tui_need_ui 已迁至 tui_util.h） ---- */
 
@@ -51,6 +59,41 @@ static void app_set(TObj *o, cui_app *a) {
     int s = tphp_class_find_prop(o->cls, "app");
     tval_release(&o->props[s]);
     o->props[s] = TV_INT((int64_t)(intptr_t)a);
+}
+
+/* ---- 阶段 B：域子对象访问 ----
+ * 缓存槽 dom0..dom4 各持一个 T_OBJ 引用（rc 归槽）。访问器返回时另 addref
+ * 给 VM（native 返回值所有权转移，vm.c 直接接管不再 addref）。 */
+static const char *DOM_SLOTS[5] = { "dom0", "dom1", "dom2", "dom3", "dom4" };
+
+static void domain_release_all(TObj *o) {
+    for (int i = 0; i < 5; i++) {
+        int s = tphp_class_find_prop(o->cls, DOM_SLOTS[i]);
+        if (s >= 0) {
+            tval_release(&o->props[s]);
+            o->props[s] = TV_NULL;   /* 防 native_dtor 后引擎二次 release */
+        }
+    }
+}
+
+static TVal nm_domain_accessor(VM *vm, void *self, int which,
+                               const char *who) {
+    TObj *o = (TObj *)self;
+    tui_need_app(vm, o, who);        /* 窗口已销毁则抛 Error */
+    TClass *cls = tui_domain_cls(which);
+    if (!cls) RAISE(vm, "Error", "%s: domain class not registered", who);
+    int s = tphp_class_find_prop(o->cls, DOM_SLOTS[which]);
+    if (s < 0) RAISE(vm, "Error", "%s: cache slot missing", who);
+    TVal cached = o->props[s];
+    TObj *child;
+    if (cached.t == T_OBJ && cached.u.p) {
+        child = (TObj *)cached.u.p;
+    } else {
+        child = tui_make_child(vm, o, cls);   /* rc=1 归槽 */
+        o->props[s] = TV_OBJ(child);
+    }
+    tval_addref(TV_OBJ(child));              /* +1 归返回值，VM 接管 */
+    return TV_OBJ(child);
 }
 
 /* ---- native 方法 ---- */
@@ -97,6 +140,23 @@ static TVal nm_app_frame(VM *vm, void *self, TVal *args, int n) {
         RAISE(vm, "Error", "%s: unclosed scope from previous frame: %s() without matching End()",
               WHO_FRAME, unclosed);
     }
+    /* 阶段 B.4：上一段的 Layout 容器 begin/end 是否配平（depth 归零） */
+    int ds = tphp_class_find_prop(((TObj *)self)->cls, "dom0");
+    if (ds >= 0) {
+        TVal dv = ((TObj *)self)->props[ds];
+        if (dv.t == T_OBJ && dv.u.p) {
+            TObj *layout = (TObj *)dv.u.p;
+            int depth = tui_prop_int(layout, "depth");
+            if (depth != 0) {
+                /* 失配意味着 CUI node 栈已失衡，本 App 不可恢复——清 depth 仅为
+                 * 避免 destroy 前的重复检测；调用方应销毁实例而非继续 frame()。 */
+                tui_prop_set_int(layout, "depth", 0);
+                RAISE(vm, "Error", "%s: %d unclosed Layout container(s) in previous frame "
+                      "(window state corrupted; destroy and recreate)",
+                      WHO_FRAME, depth);
+            }
+        }
+    }
     return cui_app_frame(a) ? TV_TRUE : TV_FALSE;
 }
 
@@ -131,6 +191,7 @@ static TVal nm_app_destroy(VM *vm, void *self, TVal *args, int n) {
     cui_app *a = tui_app_of(o);
     if (a) {
         tui_scopeif_clear();      /* 清 SCOPE_IF 残留，避免污染下一实例 */
+        domain_release_all(o);    /* 阶段 B：释放 5 个域子对象引用 */
         cui_app_destroy(a);
         app_set(o, NULL);
     }
@@ -145,12 +206,15 @@ static void app_native_dtor(TObj *o) {
         cui_app_destroy(a);
         app_set(o, NULL);
     }
+    domain_release_all(o);   /* 即便窗口已 destroy，域槽仍可能持有引用 */
 }
 
 /* ---- 布局（立即模式 scope：begin/end 成对，与 C 侧 cui_column/cui_row 宏等价） ---- */
 
+/* Layout 容器 depth 配平 helper 在 tui_util.c（tui_depth_inc/dec），各域共用。 */
+
 static TVal nm_column_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::columnBegin()";
+    const char *who = "Tphp\\Tui\\Layout::columnBegin()";
     int64_t pad = n >= 1 ? tui_arg_int(vm, args, n, 0, who, "pad") : 0;
     int64_t gap = n >= 2 ? tui_arg_int(vm, args, n, 1, who, "gap") : 0;
     cui_box b;
@@ -161,23 +225,27 @@ static TVal nm_column_begin(VM *vm, void *self, TVal *args, int n) {
     b.width.kind = CUI_SIZE_GROW;
     b.width.value = 1.0f;
     cui_column_begin(tui_need_ui(vm, (TObj *)self, who), &b);
+    tui_depth_inc((TObj *)self);
     return TV_NULL;
 }
 
 static TVal nm_row_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::rowBegin()";
+    const char *who = "Tphp\\Tui\\Layout::rowBegin()";
     int64_t gap = n >= 1 ? tui_arg_int(vm, args, n, 0, who, "gap") : 0;
     cui_box b;
     memset(&b, 0, sizeof b);
     b.gap = (float)gap;
     cui_row_begin(tui_need_ui(vm, (TObj *)self, who), &b);
+    tui_depth_inc((TObj *)self);
     return TV_NULL;
 }
 
 static TVal nm_box_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    cui_box_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\App::boxEnd()"));
+    const char *who = "Tphp\\Tui\\Layout::boxEnd()";
+    tui_depth_dec(vm, (TObj *)self, who);
+    cui_box_end(tui_need_ui(vm, (TObj *)self, who));
     return TV_NULL;
 }
 
@@ -249,39 +317,34 @@ static TVal nm_toggle(VM *vm, void *self, TVal *args, int n) {
     return v ? TV_TRUE : TV_FALSE;
 }
 
-/* ---- 类构建 helpers（teb 同款模式） ---- */
+/* ---- 阶段 B：App 域访问器 ---- */
 
-static TClass *tui_cls_new(const char *fqcn) {
-    TClass *cls = tm_malloc(sizeof *cls);
-    memset(cls, 0, sizeof *cls);
-    cls->name = tstr_intern(fqcn, strlen(fqcn));
-    cls->kind = CK_CLASS;
-    cls->flattened = true;
-    cls->m_ctor = cls->m_dtor = cls->m_get = cls->m_set = cls->m_isset =
-        cls->m_unset = cls->m_call = cls->m_callstatic = cls->m_tostring =
-        cls->m_invoke = cls->m_clone = cls->m_debuginfo = cls->m_clonestate = -1;
-    return cls;
+static TVal nm_app_layout(VM *vm, void *self, TVal *args, int n) {
+    /* layout(LayoutType): 校验实参是 LayoutType 枚举（或 int 兼容），返回 Layout 域对象。
+     * 参数当前仅做契约校验（提示调用者 intended 容器类型），begin() 时再实际使用。 */
+    const char *who = "Tphp\\Tui\\App::layout()";
+    if (n >= 1)
+        tui_opt_enum(vm, args, n, 0, 0, who, "type", TUI_LC_LAYOUT_TYPE);
+    return nm_domain_accessor(vm, self, 0, who);
+}
+static TVal nm_app_form(VM *vm, void *self, TVal *args, int n) {
+    (void)args; (void)n;
+    return nm_domain_accessor(vm, self, 1, "Tphp\\Tui\\App::form()");
+}
+static TVal nm_app_widgets(VM *vm, void *self, TVal *args, int n) {
+    (void)args; (void)n;
+    return nm_domain_accessor(vm, self, 2, "Tphp\\Tui\\App::widgets()");
+}
+static TVal nm_app_charts(VM *vm, void *self, TVal *args, int n) {
+    (void)args; (void)n;
+    return nm_domain_accessor(vm, self, 3, "Tphp\\Tui\\App::charts()");
+}
+static TVal nm_app_content(VM *vm, void *self, TVal *args, int n) {
+    (void)args; (void)n;
+    return nm_domain_accessor(vm, self, 4, "Tphp\\Tui\\App::content()");
 }
 
-/* tui_cls_add_native（方法追加）已迁至 tui_util.c，供各域文件共用 */
-
-static void tui_cls_add_ctor(TClass *cls, void *fn) {
-    cls->m_ctor = (int16_t)cls->n_methods;
-    tui_cls_add_native(cls, "__construct", fn, false);
-}
-
-static void tui_cls_add_prop(TClass *cls, const char *name) {
-    TProp *p = tm_realloc(cls->props,
-                          sizeof(TProp) * (size_t)(cls->n_props + 1));
-    TProp *np = &p[cls->n_props];
-    memset(np, 0, sizeof *np);
-    np->name = tstr_intern(name, strlen(name));
-    np->defval = TV_NULL;
-    np->visibility = 2;           /* CVIS_PRIVATE：仅 native 方法可读写 */
-    np->slot = (uint16_t)cls->n_props;
-    cls->props = p;
-    cls->n_props++;
-}
+/* ---- 类构建 helpers 已迁至 tui_util.c（供各域共用） ---- */
 
 /* ---- 枚举类（backed int）----
  * 运行时的枚举实例就是 TObj，语义全部由 cls->kind==CK_ENUM + cls->cases[]
@@ -336,35 +399,103 @@ static void tui_register_font_role(void) {
                       (int)(sizeof cases / sizeof cases[0]));
 }
 
+/* LayoutType（阶段 B）：Layout::begin() 的容器类型，backed int 0..4 */
+static void tui_register_layout_type(void) {
+    static const TuiEnumCase cases[] = {
+        { "Column", 0 },
+        { "Row",    1 },
+        { "Box",    2 },
+        { "Scroll", 3 },
+        { "Split",  4 },
+    };
+    tui_register_enum("Tphp\\Tui\\LayoutType", cases,
+                      (int)(sizeof cases / sizeof cases[0]));
+}
+
 static void tui_register_app_class(void) {
     TClass *cls = tui_cls_new("Tphp\\Tui\\App");
     tui_cls_add_prop(cls, "app");
+    /* 阶段 B：5 个域子对象缓存槽（T_OBJ 引用，首次访问创建） */
+    tui_cls_add_prop(cls, "dom0");   /* Layout  */
+    tui_cls_add_prop(cls, "dom1");   /* Form    */
+    tui_cls_add_prop(cls, "dom2");   /* Widgets */
+    tui_cls_add_prop(cls, "dom3");   /* Charts  */
+    tui_cls_add_prop(cls, "dom4");   /* Content */
     tui_cls_add_ctor(cls, (void *)nm_app_construct);
     tui_cls_add_native(cls, "frame", (void *)nm_app_frame, false);
     tui_cls_add_native(cls, "quit", (void *)nm_app_quit, false);
     tui_cls_add_native(cls, "setTitle", (void *)nm_app_set_title, false);
     tui_cls_add_native(cls, "setSize", (void *)nm_app_set_size, false);
     tui_cls_add_native(cls, "destroy", (void *)nm_app_destroy, false);
-    tui_cls_add_native(cls, "columnBegin", (void *)nm_column_begin, false);
-    tui_cls_add_native(cls, "rowBegin", (void *)nm_row_begin, false);
-    tui_cls_add_native(cls, "boxEnd", (void *)nm_box_end, false);
     tui_cls_add_native(cls, "spacer", (void *)nm_spacer, false);
     tui_cls_add_native(cls, "separator", (void *)nm_separator, false);
     tui_cls_add_native(cls, "heading", (void *)nm_heading, false);
     tui_cls_add_native(cls, "secondary", (void *)nm_secondary, false);
     tui_cls_add_native(cls, "text", (void *)nm_text, false);
     tui_cls_add_native(cls, "label", (void *)nm_label, false);
-    tui_cls_add_native(cls, "button", (void *)nm_button, false);
-    tui_cls_add_native(cls, "toggle", (void *)nm_toggle, false);
+    /* 阶段 B：域访问器 */
+    tui_cls_add_native(cls, "layout",  (void *)nm_app_layout,  false);
+    tui_cls_add_native(cls, "form",    (void *)nm_app_form,    false);
+    tui_cls_add_native(cls, "widgets", (void *)nm_app_widgets, false);
+    tui_cls_add_native(cls, "charts",  (void *)nm_app_charts,  false);
+    tui_cls_add_native(cls, "content", (void *)nm_app_content, false);
     cls->native_dtor = app_native_dtor;
-    /* 各域占位注册（Task 1 拆分架构）：Task 2-7 的方法在对应域文件内追加 */
-    tui_register_widgets(cls);
-    tui_register_form(cls);
-    tui_register_layout(cls);
-    tui_register_charts(cls);
-    tui_register_content(cls);
+    /* 仅 App 层（主题/字体/截图/测试面）留 App；其余域方法只在域类上，
+     * 不再挂 App —— 真正精简 App（B.8）。 */
     tui_register_app_layer(cls);
     tphp_class_register_compile(cls);
+}
+
+/* tui.c 里的 5 个"桥接"方法（容器 3 + 控件 2）：impl 在 tui.c，
+ * 但按语义归属域类。导出注册函数供域类构建时挂到对应 cls。 */
+void tui_register_core_bridge_layout(TClass *cls) {
+    tui_cls_add_native(cls, "columnBegin", (void *)nm_column_begin, false);
+    tui_cls_add_native(cls, "rowBegin",    (void *)nm_row_begin, false);
+    tui_cls_add_native(cls, "boxEnd",      (void *)nm_box_end, false);
+}
+void tui_register_core_bridge_widgets(TClass *cls) {
+    tui_cls_add_native(cls, "button", (void *)nm_button, false);
+    tui_cls_add_native(cls, "toggle", (void *)nm_toggle, false);
+}
+
+/* ---- 域类构建（阶段 B）----
+ * 每个域类：CK_CLASS + 私有 app 槽 + 该域的 native 方法 + 编译注册。
+ * 同一批 tui_register_* 也被 App 调用过（挂到 App），此处再挂到域类，
+ * impl 完全共用——它们只经 self.props["app"] 取窗口，子对象带同样槽即可。 */
+typedef void (*DomainRegFn)(TClass *);
+
+extern void tui_register_core_bridge_layout(TClass *cls);
+extern void tui_register_core_bridge_widgets(TClass *cls);
+
+static TClass *tui_build_domain_class(const char *fqcn, DomainRegFn reg,
+                                      DomainRegFn bridge, bool with_depth) {
+    TClass *cls = tui_cls_new(fqcn);
+    tui_cls_add_prop(cls, "app");
+    if (with_depth) tui_cls_add_prop(cls, "depth");   /* Layout 容器配平计数 */
+    reg(cls);
+    if (bridge) bridge(cls);   /* tui.c 里按语义归属本域的桥接方法 */
+    tphp_class_register_compile(cls);
+    return cls;
+}
+
+static void tui_register_domain_classes(void) {
+    g_layout_cls  = tui_build_domain_class("Tphp\\Tui\\Layout",  tui_register_layout,  tui_register_core_bridge_layout, true);
+    g_form_cls    = tui_build_domain_class("Tphp\\Tui\\Form",    tui_register_form,    NULL, false);
+    g_widgets_cls = tui_build_domain_class("Tphp\\Tui\\Widgets", tui_register_widgets, tui_register_core_bridge_widgets, false);
+    g_charts_cls  = tui_build_domain_class("Tphp\\Tui\\Charts",  tui_register_charts,  NULL, false);
+    g_content_cls = tui_build_domain_class("Tphp\\Tui\\Content", tui_register_content, NULL, false);
+}
+
+/* 域访问器用的类模板查表；which: 0=Layout 1=Form 2=Widgets 3=Charts 4=Content */
+TClass *tui_domain_cls(int which) {
+    switch (which) {
+        case 0: return g_layout_cls;
+        case 1: return g_form_cls;
+        case 2: return g_widgets_cls;
+        case 3: return g_charts_cls;
+        case 4: return g_content_cls;
+        default: return NULL;
+    }
 }
 
 /* ---- init：被 ext registry 调用，首脚本编译前一次 ----
@@ -375,5 +506,7 @@ void tphp_ext_tphp_tui_init(void) {
     /* 枚举必须先于 App 注册（button/fontSetRole/fontAddFallback 的实参校验） */
     tui_register_button_variant();
     tui_register_font_role();
+    tui_register_layout_type();
     tui_register_app_class();
+    tui_register_domain_classes();   /* 阶段 B：5 个域类（访问器返回的子对象模板） */
 }

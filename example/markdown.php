@@ -21,15 +21,15 @@ while ($app->frame()) {
     $app->heading("Rich content");
     $app->secondary("markdown / codeBlock / jsonView / hexView");
 
-    $app->markdown("md-main", $md);
-    $app->gap(6);
-    $app->codeBlock("cb-main", $code, "php", "greet.php");
-    $app->gap(6);
-    $app->jsonView("jv-main", $json);
-    $app->gap(6);
-    $app->hexView("hv-main", "\x89PNG\r\n\x1a\n\x00\x01\x02\x03hello");
-    $app->gap(6);
-    $app->diffView("dv-main",
+    $app->content()->markdown("md-main", $md);
+    $app->widgets()->gap(6);
+    $app->content()->codeBlock("cb-main", $code, "php", "greet.php");
+    $app->widgets()->gap(6);
+    $app->content()->jsonView("jv-main", $json);
+    $app->widgets()->gap(6);
+    $app->content()->hexView("hv-main", "\x89PNG\r\n\x1a\n\x00\x01\x02\x03hello");
+    $app->widgets()->gap(6);
+    $app->content()->diffView("dv-main",
         "line one\nline two\nline three\n",
         "line one\nline 2\nline three\nline four\n");
 }

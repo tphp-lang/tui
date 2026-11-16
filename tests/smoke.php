@@ -47,18 +47,18 @@ $app = new \Tphp\Tui\App("tui-smoke", 420, 300, true);
 check("frame1", true, $app->frame());
 
 // 一帧完整绘制（对应 CUI examples/hello.c 的组件面）
-$app->columnBegin(32, 16);
+$app->layout()->columnBegin(32, 16);
 $app->heading("Hello, CUI", 2);
 $app->secondary("native window driven from PHP");
-$on = $app->toggle("Notifications", true);
-$app->rowBegin(8);
-$clicked = $app->button("Click me", \Tphp\Tui\ButtonVariant::Primary);
+$on = $app->widgets()->toggle("Notifications", true);
+$app->layout()->rowBegin(8);
+$clicked = $app->widgets()->button("Click me", \Tphp\Tui\ButtonVariant::Primary);
 $app->text("Clicked 0 times");
-$app->boxEnd();
+$app->layout()->boxEnd();
 $app->label("label");
 $app->separator();
 $app->spacer();
-$app->boxEnd();
+$app->layout()->boxEnd();
 
 check("toggle keeps value (idle)", true, $on);
 check("button idle returns false", false, $clicked);

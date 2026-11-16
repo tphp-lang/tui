@@ -4,6 +4,8 @@
 
 ### `class` 类名 `App`
 
+窗口生命周期、文本原语、字体、主题、截图、测试面 + 域访问器
+
 | 方法名 | 参数 | 返回值 | 说明 |
 | :--- | :--- | :--- | :--- |
 | `__construct` | `string` `$title` = "CUI" 标题 <br> `int` `$width` = 1080 窗口宽度 <br> `int` `$height` = 720 窗口高度 <br> `bool` `$hidden` = false 是否隐藏窗口（测试用，不抢焦点） <br> `bool` `$continuous` = false 是否连续渲染 | - | 创建窗口。隐藏窗口仍可截图 |
@@ -12,17 +14,12 @@
 | `setTitle` | `string` `$title` 标题 | - | 设置窗口标题 |
 | `setSize` | `int` `$width` 宽度 <br> `int` `$height` 高度 | - | 设置窗口尺寸 |
 | `destroy` | - | - | 幂等；释放窗口与纹理，循环退出后必调 |
-| `columnBegin` | `int` `$pad` 内边距 <br> `int` `$gap` 间距 | - | 纵向容器；与 boxEnd() 配对 |
-| `rowBegin` | `int` `$gap` 间距 | - | 横向容器；与 boxEnd() 配对 |
-| `boxEnd` | - | - | 结束最近一次 columnBegin/rowBegin/boxBegin |
 | `spacer` | - | - | 弹性空白 |
 | `separator` | - | - | 分隔线 |
 | `heading` | `string` `$text` 文本 <br> `int` `$level` 层级 | - | 标题；level 由 CUI 内部夹到 1..4 |
 | `secondary` | `string` `$text` 文本 | - | 次要文本（弱化色） |
 | `text` | `string` `$text` 文本 | - | 正文文本 |
 | `label` | `string` `$text` 文本 | - | 标签文本 |
-| `button` | `string` `$label` 标签 <br> `ButtonVariant` `$variant` = 0 变体 | bool | 返回本帧是否被点击 |
-| `toggle` | `string` `$label` 标签 <br> `bool` `$value` 当前值 | bool | 返回新值（PHP 持状态） |
 | `fontLoad` | `string` `$path` 字体文件路径 | int | 加载 .ttf/.otf/.ttc（ttc 取第 0 face）；失败抛 RuntimeException |
 | `fontLoadSystem` | `string` `$path` = NULL 指定路径（留空则按平台探测） | int | 探测系统 CJK 字体；失败返回 -1，不抛 |
 | `fontSetRole` | `FontRole` `$role` 字体角色 <br> `int` `$font` 字体 id | - | 让某个 role 改用指定字体 |
@@ -43,76 +40,21 @@
 | `simulateKey` | `int` `$key` cui_key 枚举值 <br> `bool` `$down` = true 按下或抬起 <br> `int` `$mods` = 0 修饰键掩码 | - | 测试面：注入键盘事件 |
 | `simulateText` | `string` `$text` 文本 | - | 测试面：注入 UTF-8 文本 |
 | `lastRect` | - | array | 测试面：上一段最后一个组件的矩形 x/y/w/h |
-| `muted` | `string` `$text` 文本 | - | 弱化文本 |
-| `code` | `string` `$text` 文本 | - | 行内代码 |
-| `kbd` | `string` `$text` 文本 | - | 键盘按键样式文本 |
-| `link` | `string` `$text` 文本 | bool | 返回是否被点击 |
-| `icon` | `string` `$name` 图标名 <br> `float` `$size` = 0 尺寸（0 = 跟随当前字号） <br> `int` `$color` = -1 颜色（0xRRGGBBAA，-1 = 主题色） | - | 绘制图标 |
-| `tooltip` | `string` `$text` 文本 | - | 悬停提示 |
-| `gap` | `float` `$size` = 8 间距 | - | 固定间距 |
-| `cardBegin` | - | bool | 返回 true 才需调 cardEnd() |
-| `cardEnd` | - | - | 结束卡片 |
-| `badge` | `string` `$text` 文本 | - | 徽章 |
-| `avatar` | `string` `$name` 名称 | - | 头像 |
-| `avatarGroup` | `string[]` `$names` 名称列表 <br> `int` `$maxVisible` = 3 最多显示数 <br> `float` `$size` = 32 尺寸 | - | 头像组 |
-| `progress` | `float` `$value` = 0 进度 0..1 | - | 进度条 |
-| `progressRing` | `string` `$label` 标签 <br> `float` `$value` = 0 进度 <br> `float` `$size` = 48 直径 | - | 环形进度 |
-| `spinner` | `float` `$size` = 24 尺寸 | - | 旋转加载指示 |
-| `skeleton` | `float` `$height` = 20 高度 | - | 骨架占位 |
-| `loader` | - | - | 加载中占位 |
-| `emptyState` | `string` `$title` 标题 | bool | 返回是否有操作 |
-| `metric` | `string` `$label` 标签 <br> `string` `$value` 数值 | - | 指标 |
-| `meter` | `string` `$label` 标签 <br> `float` `$used` 已用 <br> `float` `$total` 总量 <br> `string` `$unit` = "" 单位 | - | 用量条 |
-| `iconButton` | `string` `$icon` 图标名 | bool | 返回是否被点击 |
-| `copyButton` | `string` `$id` 组件 id <br> `string` `$text` 要复制的文本 | bool | 返回是否被点击 |
-| `holdButton` | `string` `$label` 标签 | bool | 返回是否触发 |
-| `confirmButton` | `string` `$label` 标签 | bool | 返回是否确认 |
-| `buttonGroupBegin` | - | - | 按钮组开始 |
-| `buttonGroupEnd` | - | - | 按钮组结束 |
-| `splitButton` | `string` `$label` 标签 <br> `string[]` `$items` 菜单项 | int | 返回选中项索引，-1 = 未选 |
-| `statusButton` | `string` `$label` 标签 <br> `int` `$status` = 0 状态 0..3 | bool | 返回是否被点击 |
-| `reactions` | `string` `$id` 组件 id | int | 返回选中的 reaction 索引 |
-| `shimmerText` | `string` `$text` 文本 | - | 流光文本 |
-| `typewriter` | `string` `$id` 组件 id <br> `string` `$text` 文本 | bool | 返回本帧是否有推进 |
-| `textReveal` | `string` `$id` 组件 id <br> `string` `$text` 文本 | - | 逐字显现 |
-| `wordRotate` | `string` `$id` 组件 id <br> `string[]` `$words` 词表 <br> `float` `$interval` = 2.0 间隔秒 | - | 轮播词 |
-| `numberRoll` | `string` `$id` 组件 id <br> `string` `$value` 数值 | - | 数字滚动 |
-| `gradientText` | `string` `$text` 文本 | - | 渐变文本 |
-| `counter` | `string` `$id` 组件 id <br> `float` `$value` = 0 目标值 | - | 计数动画 |
-| `ticker` | `string` `$id` 组件 id | - | 滚动字幕 |
-| `input` | `string` `$id` 组件 id <br> `string` `$value` 当前值 <br> `int` `$cap` = 512 字节上限 | string | buffer 往返：值由 PHP 持有，传入返回出 |
-| `textarea` | `string` `$id` 组件 id <br> `string` `$value` 当前值 <br> `int` `$cap` = 4096 字节上限 | string | buffer 往返 |
-| `search` | `string` `$id` 组件 id <br> `string` `$value` 当前值 <br> `int` `$cap` = 256 字节上限 | string | buffer 往返 |
-| `otpInput` | `string` `$id` 组件 id <br> `string` `$code` 当前验证码 <br> `int` `$length` = 6 位数 | string | buffer 往返 |
-| `tagInput` | `string` `$id` 组件 id <br> `string` `$buffer` 当前缓冲 <br> `int` `$cap` = 512 字节上限 | string | buffer 往返 |
-| `moneyInput` | `string` `$id` 组件 id <br> `float` `$value` 当前值 | float | 返回新值 |
-| `number` | `string` `$label` 标签 <br> `float` `$value` 当前值 <br> `float` `$min` 最小值 <br> `float` `$max` 最大值 | float | 返回新值 |
-| `slider` | `string` `$label` 标签 <br> `float` `$value` 当前值 <br> `float` `$min` 最小值 <br> `float` `$max` 最大值 | float | 返回新值 |
-| `rangeSlider` | `string` `$label` 标签 <br> `float` `$lo` 下界 <br> `float` `$hi` 上界 <br> `float` `$min` 最小值 <br> `float` `$max` 最大值 | array | 返回 [lo, hi] |
-| `rulerSlider` | `string` `$label` 标签 <br> `float` `$value` 当前值 <br> `float` `$min` 最小值 <br> `float` `$max` 最大值 | float | 返回新值 |
-| `histogramSlider` | `string` `$label` 标签 <br> `float[]` `$bins` 区间划分 <br> `float` `$lo` 下界 <br> `float` `$hi` 上界 <br> `float` `$min` 最小值 <br> `float` `$max` 最大值 | array | 返回 [lo, hi] |
-| `knob` | `string` `$label` 标签 <br> `float` `$value` 当前值 <br> `float` `$min` 最小值 <br> `float` `$max` 最大值 | float | 返回新值 |
-| `fader` | `string` `$label` 标签 <br> `float` `$value` 当前值 <br> `float` `$min` 最小值 <br> `float` `$max` 最大值 | float | 返回新值 |
-| `scrub` | `string` `$label` 标签 <br> `float` `$value` 当前值 <br> `float` `$min` 最小值 <br> `float` `$max` 最大值 | float | 返回新值 |
-| `levelMeter` | `string` `$id` 组件 id <br> `float[]` `$levels` 电平数组 | bool | 返回是否变化 |
-| `checkbox` | `string` `$label` 标签 <br> `bool` `$value` 当前状态 | bool | 返回新状态 |
-| `radio` | `string` `$label` 标签 <br> `int` `$current` 当前选中 <br> `int` `$option` 本项值 | int | 返回选中项索引 |
-| `radioGroup` | `string` `$id` 组件 id <br> `string[]` `$items` 选项 <br> `int` `$index` 当前索引 | int | 返回选中索引 |
-| `segmented` | `string` `$id` 组件 id <br> `string[]` `$items` 选项 <br> `int` `$index` 当前索引 | int | 返回选中索引 |
-| `chip` | `string` `$label` 标签 <br> `bool` `$selected` 当前选中态 | bool | 返回新状态 |
-| `rating` | `string` `$id` 组件 id <br> `int` `$value` 当前分值 <br> `int` `$max` 满分 | int | 返回新分值 |
-| `toggleGroup` | `string` `$id` 组件 id <br> `string[]` `$labels` 标签数组 <br> `bool[]` `$values` 状态数组 | array | 返回各开关新状态 |
-| `select` | `string` `$id` 组件 id <br> `string[]` `$items` 选项 <br> `int` `$index` 当前索引 | int | 返回选中索引 |
-| `multiSelect` | `string` `$id` 组件 id <br> `string[]` `$items` 选项 <br> `bool[]` `$selected` 选中态 | array | 返回各选项新选中状态 |
-| `dateToday` | - | array | 返回 [年, 月, 日] |
-| `calendar` | `string` `$id` 组件 id | array | 传入当前日期，返回新日期 [年, 月, 日] |
-| `datePicker` | `string` `$id` 组件 id | array | 返回 [年, 月, 日] |
-| `dateRangePicker` | `string` `$id` 组件 id | array | 返回 [start, end] |
-| `rangeCalendar` | `string` `$id` 组件 id <br> `int` `$months` = 1 可见月数 | array | 返回 [start, end] |
-| `timePicker` | `string` `$id` 组件 id <br> `int` `$hour` 时 <br> `int` `$minute` 分 | array | 返回 [时, 分] |
-| `timeDial` | `string` `$id` 组件 id <br> `int` `$hour` 时 <br> `int` `$minute` 分 <br> `float` `$size` = 64 直径 | array | 返回 [时, 分] |
-| `wheelPicker` | `string` `$id` 组件 id <br> `string[]` `$items` 选项 <br> `int` `$index` 当前索引 | int | 返回选中索引 |
-| `colorPicker` | `string` `$id` 组件 id <br> `int` `$color` 当前颜色 | int | 返回 0xRRGGBBAA |
+| `layout` | `LayoutType` `$type` 容器类型提示 | Layout | 取得 Layout 域对象（缓存） |
+| `form` | - | Form | 取得 Form 域对象（缓存） |
+| `widgets` | - | Widgets | 取得 Widgets 域对象（缓存） |
+| `charts` | - | Charts | 取得 Charts 域对象（缓存） |
+| `content` | - | Content | 取得 Content 域对象（缓存） |
+
+### `class` 类名 `Layout`
+
+容器、覆盖层、导航、表格、停靠（经 `$app->layout()` 取得）
+
+| 方法名 | 参数 | 返回值 | 说明 |
+| :--- | :--- | :--- | :--- |
+| `columnBegin` | `int` `$pad` 内边距 <br> `int` `$gap` 间距 | - | 纵向容器；与 boxEnd() 配对 |
+| `rowBegin` | `int` `$gap` 间距 | - | 横向容器；与 boxEnd() 配对 |
+| `boxEnd` | - | - | 结束最近一次 columnBegin/rowBegin/boxBegin |
 | `boxBegin` | `int` `$pad` = 0 内边距 <br> `int` `$gap` = 0 间距 | - | 通用 box 容器；与 boxEnd 配对 |
 | `scrollBegin` | `string` `$id` = "" 组件 id <br> `bool` `$horizontal` = false 是否横向 | - | 滚动容器；与 scrollEnd 配对 |
 | `scrollEnd` | - | - | 结束滚动容器 |
@@ -233,6 +175,99 @@
 | `cardStackItemBegin` | `int` `$depth` 层级 | - | 卡片堆叠项开始 |
 | `cardStackItemEnd` | - | - | 卡片堆叠项结束 |
 | `cardStackEnd` | - | int | 结束卡片堆叠；返回选中项 |
+
+### `class` 类名 `Form`
+
+输入、数值、勾选、日期时间（经 `$app->form()` 取得）
+
+| 方法名 | 参数 | 返回值 | 说明 |
+| :--- | :--- | :--- | :--- |
+| `input` | `string` `$id` 组件 id <br> `string` `$value` 当前值 <br> `int` `$cap` = 512 字节上限 | string | buffer 往返：值由 PHP 持有，传入返回出 |
+| `textarea` | `string` `$id` 组件 id <br> `string` `$value` 当前值 <br> `int` `$cap` = 4096 字节上限 | string | buffer 往返 |
+| `search` | `string` `$id` 组件 id <br> `string` `$value` 当前值 <br> `int` `$cap` = 256 字节上限 | string | buffer 往返 |
+| `otpInput` | `string` `$id` 组件 id <br> `string` `$code` 当前验证码 <br> `int` `$length` = 6 位数 | string | buffer 往返 |
+| `tagInput` | `string` `$id` 组件 id <br> `string` `$buffer` 当前缓冲 <br> `int` `$cap` = 512 字节上限 | string | buffer 往返 |
+| `moneyInput` | `string` `$id` 组件 id <br> `float` `$value` 当前值 | float | 返回新值 |
+| `number` | `string` `$label` 标签 <br> `float` `$value` 当前值 <br> `float` `$min` 最小值 <br> `float` `$max` 最大值 | float | 返回新值 |
+| `slider` | `string` `$label` 标签 <br> `float` `$value` 当前值 <br> `float` `$min` 最小值 <br> `float` `$max` 最大值 | float | 返回新值 |
+| `rangeSlider` | `string` `$label` 标签 <br> `float` `$lo` 下界 <br> `float` `$hi` 上界 <br> `float` `$min` 最小值 <br> `float` `$max` 最大值 | array | 返回 [lo, hi] |
+| `rulerSlider` | `string` `$label` 标签 <br> `float` `$value` 当前值 <br> `float` `$min` 最小值 <br> `float` `$max` 最大值 | float | 返回新值 |
+| `histogramSlider` | `string` `$label` 标签 <br> `float[]` `$bins` 区间划分 <br> `float` `$lo` 下界 <br> `float` `$hi` 上界 <br> `float` `$min` 最小值 <br> `float` `$max` 最大值 | array | 返回 [lo, hi] |
+| `knob` | `string` `$label` 标签 <br> `float` `$value` 当前值 <br> `float` `$min` 最小值 <br> `float` `$max` 最大值 | float | 返回新值 |
+| `fader` | `string` `$label` 标签 <br> `float` `$value` 当前值 <br> `float` `$min` 最小值 <br> `float` `$max` 最大值 | float | 返回新值 |
+| `scrub` | `string` `$label` 标签 <br> `float` `$value` 当前值 <br> `float` `$min` 最小值 <br> `float` `$max` 最大值 | float | 返回新值 |
+| `levelMeter` | `string` `$id` 组件 id <br> `float[]` `$levels` 电平数组 | bool | 返回是否变化 |
+| `checkbox` | `string` `$label` 标签 <br> `bool` `$value` 当前状态 | bool | 返回新状态 |
+| `radio` | `string` `$label` 标签 <br> `int` `$current` 当前选中 <br> `int` `$option` 本项值 | int | 返回选中项索引 |
+| `radioGroup` | `string` `$id` 组件 id <br> `string[]` `$items` 选项 <br> `int` `$index` 当前索引 | int | 返回选中索引 |
+| `segmented` | `string` `$id` 组件 id <br> `string[]` `$items` 选项 <br> `int` `$index` 当前索引 | int | 返回选中索引 |
+| `chip` | `string` `$label` 标签 <br> `bool` `$selected` 当前选中态 | bool | 返回新状态 |
+| `rating` | `string` `$id` 组件 id <br> `int` `$value` 当前分值 <br> `int` `$max` 满分 | int | 返回新分值 |
+| `toggleGroup` | `string` `$id` 组件 id <br> `string[]` `$labels` 标签数组 <br> `bool[]` `$values` 状态数组 | array | 返回各开关新状态 |
+| `select` | `string` `$id` 组件 id <br> `string[]` `$items` 选项 <br> `int` `$index` 当前索引 | int | 返回选中索引 |
+| `multiSelect` | `string` `$id` 组件 id <br> `string[]` `$items` 选项 <br> `bool[]` `$selected` 选中态 | array | 返回各选项新选中状态 |
+| `dateToday` | - | array | 返回 [年, 月, 日] |
+| `calendar` | `string` `$id` 组件 id | array | 传入当前日期，返回新日期 [年, 月, 日] |
+| `datePicker` | `string` `$id` 组件 id | array | 返回 [年, 月, 日] |
+| `dateRangePicker` | `string` `$id` 组件 id | array | 返回 [start, end] |
+| `rangeCalendar` | `string` `$id` 组件 id <br> `int` `$months` = 1 可见月数 | array | 返回 [start, end] |
+| `timePicker` | `string` `$id` 组件 id <br> `int` `$hour` 时 <br> `int` `$minute` 分 | array | 返回 [时, 分] |
+| `timeDial` | `string` `$id` 组件 id <br> `int` `$hour` 时 <br> `int` `$minute` 分 <br> `float` `$size` = 64 直径 | array | 返回 [时, 分] |
+| `wheelPicker` | `string` `$id` 组件 id <br> `string[]` `$items` 选项 <br> `int` `$index` 当前索引 | int | 返回选中索引 |
+| `colorPicker` | `string` `$id` 组件 id <br> `int` `$color` 当前颜色 | int | 返回 0xRRGGBBAA |
+
+### `class` 类名 `Widgets`
+
+显示小件、按钮、文本特效（经 `$app->widgets()` 取得）
+
+| 方法名 | 参数 | 返回值 | 说明 |
+| :--- | :--- | :--- | :--- |
+| `button` | `string` `$label` 标签 <br> `ButtonVariant` `$variant` = 0 变体 | bool | 返回本帧是否被点击 |
+| `toggle` | `string` `$label` 标签 <br> `bool` `$value` 当前值 | bool | 返回新值（PHP 持状态） |
+| `muted` | `string` `$text` 文本 | - | 弱化文本 |
+| `code` | `string` `$text` 文本 | - | 行内代码 |
+| `kbd` | `string` `$text` 文本 | - | 键盘按键样式文本 |
+| `link` | `string` `$text` 文本 | bool | 返回是否被点击 |
+| `icon` | `string` `$name` 图标名 <br> `float` `$size` = 0 尺寸（0 = 跟随当前字号） <br> `int` `$color` = -1 颜色（0xRRGGBBAA，-1 = 主题色） | - | 绘制图标 |
+| `tooltip` | `string` `$text` 文本 | - | 悬停提示 |
+| `gap` | `float` `$size` = 8 间距 | - | 固定间距 |
+| `cardBegin` | - | bool | 返回 true 才需调 cardEnd() |
+| `cardEnd` | - | - | 结束卡片 |
+| `badge` | `string` `$text` 文本 | - | 徽章 |
+| `avatar` | `string` `$name` 名称 | - | 头像 |
+| `avatarGroup` | `string[]` `$names` 名称列表 <br> `int` `$maxVisible` = 3 最多显示数 <br> `float` `$size` = 32 尺寸 | - | 头像组 |
+| `progress` | `float` `$value` = 0 进度 0..1 | - | 进度条 |
+| `progressRing` | `string` `$label` 标签 <br> `float` `$value` = 0 进度 <br> `float` `$size` = 48 直径 | - | 环形进度 |
+| `spinner` | `float` `$size` = 24 尺寸 | - | 旋转加载指示 |
+| `skeleton` | `float` `$height` = 20 高度 | - | 骨架占位 |
+| `loader` | - | - | 加载中占位 |
+| `emptyState` | `string` `$title` 标题 | bool | 返回是否有操作 |
+| `metric` | `string` `$label` 标签 <br> `string` `$value` 数值 | - | 指标 |
+| `meter` | `string` `$label` 标签 <br> `float` `$used` 已用 <br> `float` `$total` 总量 <br> `string` `$unit` = "" 单位 | - | 用量条 |
+| `iconButton` | `string` `$icon` 图标名 | bool | 返回是否被点击 |
+| `copyButton` | `string` `$id` 组件 id <br> `string` `$text` 要复制的文本 | bool | 返回是否被点击 |
+| `holdButton` | `string` `$label` 标签 | bool | 返回是否触发 |
+| `confirmButton` | `string` `$label` 标签 | bool | 返回是否确认 |
+| `buttonGroupBegin` | - | - | 按钮组开始 |
+| `buttonGroupEnd` | - | - | 按钮组结束 |
+| `splitButton` | `string` `$label` 标签 <br> `string[]` `$items` 菜单项 | int | 返回选中项索引，-1 = 未选 |
+| `statusButton` | `string` `$label` 标签 <br> `int` `$status` = 0 状态 0..3 | bool | 返回是否被点击 |
+| `reactions` | `string` `$id` 组件 id | int | 返回选中的 reaction 索引 |
+| `shimmerText` | `string` `$text` 文本 | - | 流光文本 |
+| `typewriter` | `string` `$id` 组件 id <br> `string` `$text` 文本 | bool | 返回本帧是否有推进 |
+| `textReveal` | `string` `$id` 组件 id <br> `string` `$text` 文本 | - | 逐字显现 |
+| `wordRotate` | `string` `$id` 组件 id <br> `string[]` `$words` 词表 <br> `float` `$interval` = 2.0 间隔秒 | - | 轮播词 |
+| `numberRoll` | `string` `$id` 组件 id <br> `string` `$value` 数值 | - | 数字滚动 |
+| `gradientText` | `string` `$text` 文本 | - | 渐变文本 |
+| `counter` | `string` `$id` 组件 id <br> `float` `$value` = 0 目标值 | - | 计数动画 |
+| `ticker` | `string` `$id` 组件 id | - | 滚动字幕 |
+
+### `class` 类名 `Charts`
+
+图表（经 `$app->charts()` 取得）
+
+| 方法名 | 参数 | 返回值 | 说明 |
+| :--- | :--- | :--- | :--- |
 | `lineChart` | `string` `$id` 组件 id <br> `array` `$series` [name, values, color?] | - | 折线图 |
 | `barChart` | `string` `$id` 组件 id <br> `array` `$series` [name, values, color?] | - | 柱状图 |
 | `donutChart` | `string` `$id` 组件 id <br> `string[]` `$labels` 分段标签 | - | 环形图 |
@@ -254,6 +289,13 @@
 | `waterfall` | `string` `$id` 组件 id <br> `array` `$requests` 请求 | array | 返回 clicked / activated / hovered |
 | `dotChart` | `string` `$id` 组件 id <br> `array` `$series` 系列 | array | 返回 hovered / x / value / clicked |
 | `timelineItem` | `string` `$title` 标题 | - | 时间线条目 |
+
+### `class` 类名 `Content`
+
+富文本、编辑器、聊天、节点、devtools（经 `$app->content()` 取得）
+
+| 方法名 | 参数 | 返回值 | 说明 |
+| :--- | :--- | :--- | :--- |
 | `codeBlock` | `string` `$id` 组件 id <br> `string` `$code` 代码 <br> `string` `$lang` = "" 语言 <br> `string` `$title` = "" 标题 | - | 代码块 |
 | `jsonView` | `string` `$id` 组件 id <br> `string` `$json` JSON 文本 | bool | 返回是否为合法 JSON |
 | `markdown` | `string` `$id` 组件 id <br> `string` `$text` 文本 | array | markdown 渲染；返回链接点击等 |
@@ -335,6 +377,7 @@
 | `Danger` | 5 | 危险 |
 | `Link` | 6 | 链接样式 |
 
+
 ### `enum` 枚举名 `FontRole` : `int`
 
 | case | 值 | 说明 |
@@ -344,3 +387,13 @@
 | `Display` | 2 | 标题字体（Geist Medium） |
 | `Mono` | 3 | 等宽字体（Geist Mono） |
 | `Icons` | 4 | 图标字体（Lucide） |
+
+### `enum` 枚举名 `LayoutType` : `int`
+
+| case | 值 | 说明 |
+| :--- | :--- | :--- |
+| `Column` | 0 | 纵向容器 |
+| `Row` | 1 | 横向容器 |
+| `Box` | 2 | 通用盒子 |
+| `Scroll` | 3 | 滚动容器 |
+| `Split` | 4 | 分割容器 |

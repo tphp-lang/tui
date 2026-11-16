@@ -184,6 +184,7 @@ static TVal nm_box_begin(VM *vm, void *self, TVal *args, int n) {
     b.width.kind = CUI_SIZE_GROW;
     b.width.value = 1.0f;
     cui_box_begin(tui_need_ui(vm, (TObj *)self, who), &b);
+    tui_depth_inc((TObj *)self);
     return TV_NULL;
 }
 
@@ -197,13 +198,16 @@ static TVal nm_scroll_begin(VM *vm, void *self, TVal *args, int n) {
     o.horizontal = horiz;
     cui_scroll_begin(tui_need_ui(vm, (TObj *)self, who),
                      (id[0] || horiz) ? &o : NULL);
+    tui_depth_inc((TObj *)self);
     return TV_NULL;
 }
 
 static TVal nm_scroll_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    cui_scroll_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\App::scrollEnd()"));
+    const char *who = "Tphp\\Tui\\Layout::scrollEnd()";
+    tui_depth_dec(vm, (TObj *)self, who);
+    cui_scroll_end(tui_need_ui(vm, (TObj *)self, who));
     return TV_NULL;
 }
 
@@ -222,6 +226,7 @@ static TVal nm_split_begin(VM *vm, void *self, TVal *args, int n) {
     double ratio = tui_arg_float(vm, args, n, 1, who, "ratio");
     g_split_ratio = (float)ratio;
     cui_split_begin(tui_need_ui(vm, (TObj *)self, who), id, &g_split_ratio, NULL);
+    tui_depth_inc((TObj *)self);
     return TV_NULL;
 }
 
@@ -235,7 +240,8 @@ static TVal nm_split_next(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_split_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    cui_split_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\App::splitEnd()"));
+    tui_depth_dec(vm, (TObj *)self, "Tphp\\Tui\\Layout::splitEnd()");
+    cui_split_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\Layout::splitEnd()"));
     return TV_FLOAT(g_split_ratio);   /* 拖拽后的新比例（PHP 持状态） */
 }
 

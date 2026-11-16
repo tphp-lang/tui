@@ -21,27 +21,27 @@ while ($app->frame()) {
     $app->secondary("本周概览 · " . date("Y-m-d"));
 
     // 指标行
-    $app->boxBegin(0, 8);
-    $app->metric("访问量", "1,280");
-    $app->metric("转化率", "4.7%");
-    $app->metric("在线", "132");
-    $app->boxEnd();
+    $app->layout()->boxBegin(0, 8);
+    $app->widgets()->metric("访问量", "1,280");
+    $app->widgets()->metric("转化率", "4.7%");
+    $app->widgets()->metric("在线", "132");
+    $app->layout()->boxEnd();
 
     $app->separator();
 
     // 折线 + 柱状
-    $app->lineChart("c-visit", [
+    $app->charts()->lineChart("c-visit", [
         ["name" => "visits", "values" => $visits],
         ["name" => "signups", "values" => $signups],
     ], ["height" => 180]);
-    $app->barChart("c-bar", [
+    $app->charts()->barChart("c-bar", [
         ["name" => "visits", "values" => $visits],
     ], ["height" => 140]);
 
     // 环形 + 仪表 + sparkline
-    $app->donutChart("c-donut", [55.0, 30.0, 15.0], ["Web", "App", "API"], []);
-    $app->gauge("CPU", 0.63, 110);
-    $app->sparkline($visits, 140, 32, 0x22C55EFF);
+    $app->charts()->donutChart("c-donut", [55.0, 30.0, 15.0], ["Web", "App", "API"], []);
+    $app->charts()->gauge("CPU", 0.63, 110);
+    $app->charts()->sparkline($visits, 140, 32, 0x22C55EFF);
 
     $app->separator();
 
@@ -51,17 +51,17 @@ while ($app->frame()) {
         ["title" => "可用率", "align" => 2],
         ["title" => "延迟", "align" => 2],
     ];
-    if ($app->tableBegin("t-svc", $cols)) {
+    if ($app->layout()->tableBegin("t-svc", $cols)) {
         for ($i = 0; $i < count($rows); $i++) {
-            $app->tableRow(false);
-            $app->tableCell();
-            $app->tableCellText($rows[$i][0]);
-            $app->tableCell();
-            $app->tableCellText($rows[$i][1]);
-            $app->tableCell();
-            $app->tableCellText($rows[$i][2]);
+            $app->layout()->tableRow(false);
+            $app->layout()->tableCell();
+            $app->layout()->tableCellText($rows[$i][0]);
+            $app->layout()->tableCell();
+            $app->layout()->tableCellText($rows[$i][1]);
+            $app->layout()->tableCell();
+            $app->layout()->tableCellText($rows[$i][2]);
         }
-        $app->tableEnd();
+        $app->layout()->tableEnd();
     }
 }
 

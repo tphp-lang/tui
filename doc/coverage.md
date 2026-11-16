@@ -1,7 +1,9 @@
 # tphp/tui 覆盖矩阵与约定
 
 对照 `cui/include/cui/cui.h`（CUI 1.4.0）核对：每个组件级 `CUI_API …(cui_ctx*)` 入口
-要么有对应 PHP 方法（README 分组表全量列出，共 314 个），要么在下方排除清单。
+要么有对应 PHP 方法（API.md 按 6 类全量列出，共 313 个组件方法，另 +5 域访问器），
+要么在下方排除清单。方法按域挂在 `App`/`Layout`/`Form`/`Widgets`/`Charts`/`Content`
+上，经 `$app->form()` 等访问器取得（见 README）。
 核对方式：按 cui.h 章节逐节对照（抽查脚本口径：`tui_cls_add_native` 注册名 vs 章节入口）。
 
 ## 1. 覆盖矩阵（按 cui.h 章节）
@@ -66,6 +68,10 @@
   调 End。SCOPE 无条件对（box/scroll/split/card/buttonGroup/spotlight/dock/dockspace/
   carousel/menuBar/toolbar/statusBar/virtualList/dialogFooter/cardStack/swipeItem/
   reorder/treeTable/kanban 等）不受影响。
+  **阶段 A 新增**：`frame()` 入口统一检测 14 对 `g_*_on` 残留，漏 End 抛 Error（见
+  `tests/smoke-scopeif.php`）；阶段 B 又为 5 种 LayoutType 无条件容器加 `depth` 配平
+  （`tests/smoke-depth.php`）——CUI 每帧重置 node 栈，故后者是把视觉错乱变显式错误，
+  失配后窗口状态不可恢复，须销毁重建。
 - **单例**：terminal/log 缓冲（存储由包持有，`terminalInit/logInit` 重建）、hex 选择、
   image 视图、裁剪矩形——各进程一份。
 - **错误**：TypeError/ValueError/LogicException，无静默；CUI vendor（`cui/`）零修改。

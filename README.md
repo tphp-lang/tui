@@ -1,12 +1,12 @@
 # tphp/tui
 
 基于 [CUI 1.4.0](https://github.com/yappologistic/CUI) 的 tphp 窗口 UI 扩展包（type=ext），
-单类 `Tphp\Tui\App` 立即模式封装，**314 个方法**，覆盖 CUI 组件面（覆盖矩阵与排除清单见
-[doc/coverage.md](doc/coverage.md)）。
+立即模式封装，按域分为 **6 个类**：`App`（窗口/字体/截图）/`Layout`/`Form`/`Widgets`/
+`Charts`/`Content`，共 313 个组件方法 + 5 个域访问器（覆盖矩阵与排除清单见
+[doc/coverage.md](doc/coverage.md)，逐方法参数见 [doc/API.md](doc/API.md)）。
 
-> **计划中**：将按域拆分为 `App`/`Layout`/`Form`/`Widgets`/`Charts`/`Content` 多个类，
-> 容器改用 `$layout->begin()/end()` + `LayoutType` 枚举。详见
-> [doc/refactor-plan.md](doc/refactor-plan.md)。
+> 域方法经 `$app->form()` / `$app->layout()` 等访问器取得，**不再挂在 `App` 上**。
+> 拆分过程与决策见 [doc/refactor-plan.md](doc/refactor-plan.md)。
 
 ## 链入
 
@@ -31,8 +31,8 @@ use Tphp\Tui\ButtonVariant;
 $app = new \Tphp\Tui\App("demo", 1080, 720);   // 第4参 true = hidden（测试用）
 while ($app->frame()) {                        // 渲染上一段 + 等事件 + 开新段；关窗 false
     $app->heading("Hello");
-    if ($app->button("点我", ButtonVariant::Primary)) { /* clicked */ }
-    $on = $app->toggle("开关", $on);           // 返回新值（PHP 持状态）
+    if ($app->widgets()->button("点我", ButtonVariant::Primary)) { /* clicked */ }
+    $on = $app->widgets()->toggle("开关", $on);           // 返回新值（PHP 持状态）
 }
 $app->destroy();
 ```
@@ -88,7 +88,7 @@ use Tphp\Tui\App;
 $app = new App("我的窗口", 800, 600);      // 第4参 true = 隐藏窗口（测试）
 while ($app->frame()) {                    // 渲染上一段 → 等事件 → 开新段；关窗返回 false
     $app->heading("Hello tui");
-    if ($app->button("退出")) {
+    if ($app->widgets()->button("退出")) {
         $app->quit();                      // 下一次 frame() 返回 false，循环自然结束
     }
 }
@@ -108,16 +108,16 @@ $agree = false;
 $tab   = 0;
 $vol   = 0.5;
 while ($app->frame()) {
-    $agree = $app->checkbox("同意协议", $agree);
-    $tab   = $app->tabs("main", ["首页", "设置"], $tab);   // 点击后返回新索引
-    $vol   = $app->slider("音量", $vol, 0.0, 1.0);
+    $agree = $app->form()->checkbox("同意协议", $agree);
+    $tab   = $app->layout()->tabs("main", ["首页", "设置"], $tab);   // 点击后返回新索引
+    $vol   = $app->form()->slider("音量", $vol, 0.0, 1.0);
 }
 
 // 2) buffer 往返：值由 PHP 持有，传入返回出（input/textarea/search/otp/tag/codeEditor）
 $text = "";
 while ($app->frame()) {
-    $text = $app->input("q", $text, 256, ["label" => "搜索"]);
-    if ($app->button("提交") && trim($text) !== "") {
+    $text = $app->form()->input("q", $text, 256, ["label" => "搜索"]);
+    if ($app->widgets()->button("提交") && trim($text) !== "") {
         do_search($text);
         $text = "";
     }
@@ -126,24 +126,24 @@ while ($app->frame()) {
 // 3) open 类：传入当前展开态，返回本帧新态（dialog/accordion/tree/banner/...）
 $dialog_open = false;
 while ($app->frame()) {
-    if ($app->button("打开对话框")) $dialog_open = true;
-    if ($app->dialogBegin("标题", $dialog_open)) {
+    if ($app->widgets()->button("打开对话框")) $dialog_open = true;
+    if ($app->layout()->dialogBegin("标题", $dialog_open)) {
         $app->text("内容");
-        if ($app->button("关闭")) $dialog_open = false;
-        $app->dialogFooterBegin();
-        $app->button("OK");
-        $app->dialogFooterEnd();
-        $app->dialogEnd();                  // Begin/End 必须配对（关态时封装层自动跳过）
+        if ($app->widgets()->button("关闭")) $dialog_open = false;
+        $app->layout()->dialogFooterBegin();
+        $app->widgets()->button("OK");
+        $app->layout()->dialogFooterEnd();
+        $app->layout()->dialogEnd();                  // Begin/End 必须配对（关态时封装层自动跳过）
     }
 }
 
 // 4) scope 成对：xxxBegin / xxxEnd 每帧一一配对（table/scroll/split/menu/...）
 while ($app->frame()) {
-    if ($app->tableBegin("t1", [["title" => "名"], ["title" => "值"]])) {
-        $app->tableRow(false);
-        $app->tableCell();  $app->tableCellText("a");
-        $app->tableCell();  $app->tableCellText("1");
-        $app->tableEnd();
+    if ($app->layout()->tableBegin("t1", [["title" => "名"], ["title" => "值"]])) {
+        $app->layout()->tableRow(false);
+        $app->layout()->tableCell();  $app->layout()->tableCellText("a");
+        $app->layout()->tableCell();  $app->layout()->tableCellText("1");
+        $app->layout()->tableEnd();
     }
 }
 ```
@@ -154,30 +154,30 @@ while ($app->frame()) {
 // 计数器（点击 +1，按钮返回 bool）
 $count = 0;
 $app->frame();
-if ($app->button("+1")) $count++;
+if ($app->widgets()->button("+1")) $count++;
 $app->text("count = " . $count);
 
 // 列表增删（数组即状态）
 $items = ["a", "b"];
 $keep = [];
 foreach ($items as $it) {
-    $on = $app->toggle($it, false);            // 行内勾选态也可放平行数组
-    if (!$app->button("删")) $keep[] = $it;
+    $on = $app->widgets()->toggle($it, false);            // 行内勾选态也可放平行数组
+    if (!$app->widgets()->button("删")) $keep[] = $it;
 }
 $items = $keep;
 
 // 轻反馈：toast 句柄 + alert/banner（返回 open/可见态）
-$th = $app->toast("已保存");
-if ($app->toastActionClicked($th)) { /* ... */ }
+$th = $app->layout()->toast("已保存");
+if ($app->layout()->toastActionClicked($th)) { /* ... */ }
 
 // 图表数据 = 每帧构造的 PHP 数组
-$app->lineChart("c1", [
+$app->charts()->lineChart("c1", [
     ["name" => "访问", "values" => [120.0, 180.0, 150.0], "color" => 0x3B82F6FF],
 ], ["height" => 180]);
 
 // 日期：[y, m, d] 三元组往返
-$d = $app->datePicker("d1", [2026, 11, 15]);
-$app->muted("选中 {$d[0]}-{$d[1]}-{$d[2]}");
+$d = $app->form()->datePicker("d1", [2026, 11, 15]);
+$app->widgets()->muted("选中 {$d[0]}-{$d[1]}-{$d[2]}");
 ```
 
 ### 异常处理
@@ -208,7 +208,7 @@ function check(bool $c, string $n): void {
 $app = new \Tphp\Tui\App("t", 640, 480, true);   // 隐藏窗口
 $app->frame();                                    // 开首段
 // —— 每帧内容：绘制 + 断言返回值 ——
-check($app->button("hi") === false, "idle-not-clicked");
+check($app->widgets()->button("hi") === false, "idle-not-clicked");
 $app->quit();
 check($app->frame() === false, "loop-stopped");
 $app->destroy();
@@ -233,14 +233,26 @@ exit($fail ? 1 : 0);
 
 ## API
 
-全部 **314 个方法**的逐方法参数表见 **[doc/API.md](doc/API.md)**（参数带中文说明与默认值）。
+6 个类共 **313 个组件方法**的逐方法参数表见 **[doc/API.md](doc/API.md)**（参数带中文说明与默认值）：
 
-两个枚举：
+| 类 | 取得方式 | 内容 |
+|---|---|---|
+| `App` | `new App(...)` | 窗口生命周期、文本原语、字体、主题、截图、测试面 + 5 个域访问器 |
+| `Layout` | `$app->layout(LayoutType)` | 容器、覆盖层、导航、表格、停靠 |
+| `Form` | `$app->form()` | 输入、数值、勾选、日期时间 |
+| `Widgets` | `$app->widgets()` | 显示小件、按钮、文本特效 |
+| `Charts` | `$app->charts()` | 21 种图表 |
+| `Content` | `$app->content()` | 富文本、编辑器、聊天、节点、devtools |
+
+域方法**只挂在对应域类上**，`$app->input()` 这类旧写法不再可用，改用 `$app->form()->input()`。
+
+三个枚举：
 
 | 枚举 | case | 用途 |
 |---|---|---|
-| `Tphp\Tui\ButtonVariant` | `Default`=0 `Secondary`=1 `Primary`=2 `Outline`=3 `Ghost`=4 `Danger`=5 `Link`=6 | `button()` 的 variant |
+| `Tphp\Tui\ButtonVariant` | `Default`=0 `Secondary`=1 `Primary`=2 `Outline`=3 `Ghost`=4 `Danger`=5 `Link`=6 | `widgets()->button()` 的 variant |
 | `Tphp\Tui\FontRole` | `Body`=0 `Medium`=1 `Display`=2 `Mono`=3 `Icons`=4 | `fontSetRole()` / `fontAddFallback()` 的 role |
+| `Tphp\Tui\LayoutType` | `Column`=0 `Row`=1 `Box`=2 `Scroll`=3 `Split`=4 | `layout()` 访问器的容器类型提示 |
 
 ## 测试
 
@@ -248,9 +260,10 @@ exit($fail ? 1 : 0);
 powershell -ExecutionPolicy Bypass -File tests\run.ps1     # cwd = tui 包根
 ```
 
-7 个冒烟（basic/widgets/form/container/chart/advanced/interaction）全部 hidden 窗口、
-自断言、exit code 语义；interaction 用输入注入驱动真实点击（button 返回 true、toggle 翻转、
-PNG 截图落盘校验）。任一失败退出码非 0。
+10 个冒烟全部 hidden 窗口、自断言、exit code 语义：基本/高级/图表/容器/表单/交互/小件
+（原 7 个）+ `scopeif`（SCOPE_IF 漏 End 检测）+ `domain`（6 类 API）+ `depth`（容器配平）。
+interaction 用输入注入驱动真实点击（button 返回 true、toggle 翻转、PNG 截图落盘校验）。
+任一失败退出码非 0。
 
 ## 示例
 

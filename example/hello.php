@@ -21,16 +21,16 @@ $notifications = true;
 $clicks = 0;
 
 while ($app->frame()) {
-    $app->columnBegin(32, 16);
+    $app->layout()->columnBegin(32, 16);
     $app->heading("你好，CUI 界面", 2);
     $app->secondary("中文与 English 混排都不再是豆腐块。");
-    $notifications = $app->toggle("启用通知", $notifications);
-    $app->rowBegin(8);
-    if ($app->button("点我", ButtonVariant::Primary)) {
+    $notifications = $app->widgets()->toggle("启用通知", $notifications);
+    $app->layout()->rowBegin(8);
+    if ($app->widgets()->button("点我", ButtonVariant::Primary)) {
         $clicks++;
     }
     $app->text("已点击 {$clicks} 次");
-    $app->boxEnd();
+    $app->layout()->boxEnd();
 }
 
 echo "bye\n";

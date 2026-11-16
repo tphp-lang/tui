@@ -19,55 +19,55 @@ $series = [
     ["name" => "A", "values" => [1.0, 2.5, 3.0, 4.5, 5.0, 6.5, 7.0, 8.0], "color" => 0x3B82F6FF],
     ["name" => "B", "values" => [2.0, 1.5, 4.0, 3.5, 6.0, 5.5, 8.0, 7.0]],
 ];
-$app->lineChart("lc1", $series, ["area" => true, "height" => 180]);
-$app->barChart("bc1", $series, ["stacked" => false]);
-$app->donutChart("dc1", [30.0, 20.0, 50.0], ["Red", "Green", "Blue"], []);
-$app->sparkline([1.0, 3.0, 2.0, 5.0, 4.0], 100, 24, 0x22C55EFF);
-$app->gauge("Load", 0.72, 120);
-$app->radialGauge("rg1", 42.0, 0, 100);
-check(is_int($app->scatterChart("sc1", [
+$app->charts()->lineChart("lc1", $series, ["area" => true, "height" => 180]);
+$app->charts()->barChart("bc1", $series, ["stacked" => false]);
+$app->charts()->donutChart("dc1", [30.0, 20.0, 50.0], ["Red", "Green", "Blue"], []);
+$app->charts()->sparkline([1.0, 3.0, 2.0, 5.0, 4.0], 100, 24, 0x22C55EFF);
+$app->charts()->gauge("Load", 0.72, 120);
+$app->charts()->radialGauge("rg1", 42.0, 0, 100);
+check(is_int($app->charts()->scatterChart("sc1", [
     ["name" => "pts", "points" => [[1.0, 2.0], [3.0, 4.0], [5.0, 1.5]], "sizes" => [2.0, 3.0, 4.0]],
 ])), "scatter-int");
-check(is_int($app->radarChart("rd1", $series, ["Speed", "Cost", "Quality", "UX", "Docs", "API", "Perf", "Test"])), "radar-int");
-check(is_int($app->heatmap("hm1", [0.1, 0.2, 0.3, 0.4, 0.5, 0.6], 2, 3)), "heatmap-int");
-check(is_int($app->calendarHeatmap("ch1", [2026, 10, 1], [1.0, 0.5, 0.0, 0.8, 1.0, 0.2, 0.6, 0.9, 0.3, 0.7])), "calendarHeatmap-int");
+check(is_int($app->charts()->radarChart("rd1", $series, ["Speed", "Cost", "Quality", "UX", "Docs", "API", "Perf", "Test"])), "radar-int");
+check(is_int($app->charts()->heatmap("hm1", [0.1, 0.2, 0.3, 0.4, 0.5, 0.6], 2, 3)), "heatmap-int");
+check(is_int($app->charts()->calendarHeatmap("ch1", [2026, 10, 1], [1.0, 0.5, 0.0, 0.8, 1.0, 0.2, 0.6, 0.9, 0.3, 0.7])), "calendarHeatmap-int");
 
 $items = [
     ["label" => "Desktop", "value" => 42.0, "color" => 0x3B82F6FF],
     ["label" => "Mobile", "value" => 28.0],
     ["label" => "Bot", "value" => 14.0],
 ];
-check(is_int($app->treemap("tm1", $items)), "treemap-int");
-check(is_int($app->funnel("fn1", $items)), "funnel-int");
-check(is_int($app->sankey("sn1", ["Web", "API", "DB", "Cache"], [
+check(is_int($app->charts()->treemap("tm1", $items)), "treemap-int");
+check(is_int($app->charts()->funnel("fn1", $items)), "funnel-int");
+check(is_int($app->charts()->sankey("sn1", ["Web", "API", "DB", "Cache"], [
     ["from" => 0, "to" => 1, "value" => 10.0],
     ["from" => 1, "to" => 2, "value" => 6.0],
     ["from" => 1, "to" => 3, "value" => 4.0],
 ])), "sankey-int");
-check(is_int($app->waffle("wf1", $items)), "waffle-int");
-check(is_int($app->splitBar("sb1", $items)), "splitBar-int");
-check(is_int($app->barList("bl1", $items)), "barList-int");
-check(is_int($app->activityRings("ar1", $items)), "activityRings-int");
+check(is_int($app->charts()->waffle("wf1", $items)), "waffle-int");
+check(is_int($app->charts()->splitBar("sb1", $items)), "splitBar-int");
+check(is_int($app->charts()->barList("bl1", $items)), "barList-int");
+check(is_int($app->charts()->activityRings("ar1", $items)), "activityRings-int");
 
 $candles = [
     ["open" => 100.0, "high" => 108.0, "low" => 97.0, "close" => 105.0, "volume" => 1200.0],
     ["open" => 105.0, "high" => 110.0, "low" => 102.0, "close" => 103.0, "volume" => 900.0],
     ["open" => 103.0, "high" => 107.0, "low" => 99.0, "close" => 106.0, "volume" => 1500.0],
 ];
-check(is_int($app->candlestick("cs1", $candles, ["Mon", "Tue", "Wed"])), "candlestick-int");
-$wf = $app->waterfall("wf2", [
+check(is_int($app->charts()->candlestick("cs1", $candles, ["Mon", "Tue", "Wed"])), "candlestick-int");
+$wf = $app->charts()->waterfall("wf2", [
     ["name" => "GET /api", "method" => "GET", "status" => 200, "type" => "fetch",
      "size" => 4096.0, "start" => 0.0, "timing" => [0.0, 0.01, 0.02, 0.03, 0.04, 0.05]],
     ["name" => "POST /api", "method" => "POST", "status" => 201, "type" => "fetch",
      "size" => 8192.0, "start" => 0.05, "timing" => [0.05, 0.06, 0.07, 0.08, 0.09, 0.1]],
 ]);
 check(is_array($wf) && array_key_exists("hovered", $wf) && array_key_exists("clicked", $wf), "waterfall-result");
-$dot = $app->dotChart("dt1", [
+$dot = $app->charts()->dotChart("dt1", [
     ["values" => [1.0, 3.0, 2.0, 5.0, 4.0], "name" => "r1"],
     ["values" => [2.0, 2.0, 3.0, 4.0, 3.5], "name" => "r2", "accent" => true],
 ]);
 check(is_array($dot) && array_key_exists("hovered", $dot) && array_key_exists("clicked", $dot), "dotChart-result");
-$app->timelineItem("Deploy finished");
+$app->charts()->timelineItem("Deploy finished");
 
 $app->quit();
 check($app->frame() === false, "loop-stopped");

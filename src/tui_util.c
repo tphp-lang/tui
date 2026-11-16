@@ -175,7 +175,76 @@ void tui_scopeif_clear(void) {
     tui_content_scopeif_clear();
 }
 
-/* ---- 类注册 ---- */
+/* ---- 类构建 / 注册 ---- */
+
+TClass *tui_cls_new(const char *fqcn) {
+    TClass *cls = tm_malloc(sizeof *cls);
+    memset(cls, 0, sizeof *cls);
+    cls->name = tstr_intern(fqcn, strlen(fqcn));
+    cls->kind = CK_CLASS;
+    cls->flattened = true;
+    cls->m_ctor = cls->m_dtor = cls->m_get = cls->m_set = cls->m_isset =
+        cls->m_unset = cls->m_call = cls->m_callstatic = cls->m_tostring =
+        cls->m_invoke = cls->m_clone = cls->m_debuginfo = cls->m_clonestate = -1;
+    return cls;
+}
+
+void tui_cls_add_ctor(TClass *cls, void *fn) {
+    cls->m_ctor = (int16_t)cls->n_methods;
+    tui_cls_add_native(cls, "__construct", fn, false);
+}
+
+void tui_cls_add_prop(TClass *cls, const char *name) {
+    TProp *p = tm_realloc(cls->props,
+                          sizeof(TProp) * (size_t)(cls->n_props + 1));
+    TProp *np = &p[cls->n_props];
+    memset(np, 0, sizeof *np);
+    np->name = tstr_intern(name, strlen(name));
+    np->defval = TV_NULL;
+    np->visibility = 2;           /* CVIS_PRIVATE */
+    np->slot = (uint16_t)cls->n_props;
+    cls->props = p;
+    cls->n_props++;
+}
+
+/* 子对象：alloc + 复制父的 app 句柄。app 值是 TV_INT 标量（存窗口地址），
+ * 复制不增引用计数。alloc 的 rc=1 转移给返回值，调用方负责存入父槽时 addref。 */
+TObj *tui_make_child(VM *vm, TObj *parent, TClass *cls) {
+    (void)vm;
+    TObj *child = tphp_obj_alloc(cls);
+    int ps = tphp_class_find_prop(parent->cls, "app");
+    int cs = tphp_class_find_prop(cls, "app");
+    if (ps >= 0 && cs >= 0) {
+        tval_release(&child->props[cs]);
+        child->props[cs] = parent->props[ps];   /* TV_INT 标量，值拷贝 */
+    }
+    return child;   /* rc=1 归调用方 */
+}
+
+int tui_prop_int(TObj *o, const char *name) {
+    int s = tphp_class_find_prop(o->cls, name);
+    if (s < 0) return 0;
+    TVal v = o->props[s];
+    return (v.t == T_INT) ? (int)v.u.i : 0;
+}
+
+void tui_prop_set_int(TObj *o, const char *name, int v) {
+    int s = tphp_class_find_prop(o->cls, name);
+    if (s < 0) return;
+    tval_release(&o->props[s]);
+    o->props[s] = TV_INT(v);
+}
+
+void tui_depth_inc(TObj *o) {
+    tui_prop_set_int(o, "depth", tui_prop_int(o, "depth") + 1);
+}
+
+void tui_depth_dec(VM *vm, TObj *o, const char *who) {
+    int d = tui_prop_int(o, "depth");
+    if (d <= 0)
+        tphp_vm_raise(vm, "Error", "%s: end() without matching begin()", who);
+    tui_prop_set_int(o, "depth", d - 1);
+}
 
 void tui_cls_add_native(TClass *cls, const char *name, void *fn,
                         bool is_static) {

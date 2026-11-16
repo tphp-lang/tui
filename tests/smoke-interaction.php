@@ -23,7 +23,7 @@ $app = new \Tphp\Tui\App("tui-interaction", 480, 360, true);
 // F1：intro（本段含 heading+button）
 $app->frame();
 $app->heading("Interaction smoke");
-$app->button("Hit me");
+$app->widgets()->button("Hit me");
 $app->simulateMouse(1, 1);   // 注入以唤醒 frame()
 $app->frame();
 
@@ -42,10 +42,10 @@ $app->setTheme(0);
 $app->setReducedMotion(false);
 
 // --- 过渡到 button-only 布局段（每段只画 button，rect 才稳定） ---
-$app->button("Hit me");
+$app->widgets()->button("Hit me");
 $app->simulateMouse(1, 1);
 $app->frame();
-$app->button("Hit me");
+$app->widgets()->button("Hit me");
 $r = $app->lastRect();                 // 上一段（button-only）的 rect
 check(is_array($r) && $r["w"] > 0 && $r["h"] > 0, "lastRect-size");
 $cx = $r["x"] + $r["w"] / 2;
@@ -56,16 +56,16 @@ $hit = false;
 for ($i = 0; $i < 6 && !$hit; $i++) {
     $app->simulateMouse($cx, $cy);
     $app->frame();                     // 悬停落段
-    $app->button("Hit me");
+    $app->widgets()->button("Hit me");
     $app->simulateMouseButton(0, true);
-    $app->button("Hit me");            // 见 down → pressed
+    $app->widgets()->button("Hit me");            // 见 down → pressed
     $app->frame();
-    $app->button("Hit me");
+    $app->widgets()->button("Hit me");
     $app->simulateMouseButton(0, false);
-    $b = $app->button("Hit me");       // 见 up → clicked（实测 true）
+    $b = $app->widgets()->button("Hit me");       // 见 up → clicked（实测 true）
     $app->frame();
     $hit = ($b === true);
-    $app->button("Hit me");
+    $app->widgets()->button("Hit me");
     $r = $app->lastRect();
     if ($r["w"] > 0) { $cx = $r["x"] + $r["w"] / 2; $cy = $r["y"] + $r["h"] / 2; }
 }
@@ -75,10 +75,10 @@ check($hit === true, "button-click-via-inject");
 $app->destroy();
 $app = new \Tphp\Tui\App("tui-interaction2", 480, 360, true);
 $app->frame();
-$app->toggle("Flag", false);
+$app->widgets()->toggle("Flag", false);
 $app->simulateMouse(1, 1);
 $app->frame();
-$app->toggle("Flag", false);
+$app->widgets()->toggle("Flag", false);
 $tr = $app->lastRect();
 check($tr["w"] > 0, "toggle-rect");
 $tx = $tr["x"] + $tr["w"] / 2;
@@ -87,16 +87,16 @@ $flipped = false;
 for ($i = 0; $i < 6 && !$flipped; $i++) {
     $app->simulateMouse($tx, $ty);
     $app->frame();
-    $app->toggle("Flag", false);
+    $app->widgets()->toggle("Flag", false);
     $app->simulateMouseButton(0, true);
-    $app->toggle("Flag", false);
+    $app->widgets()->toggle("Flag", false);
     $app->frame();
-    $app->toggle("Flag", false);
+    $app->widgets()->toggle("Flag", false);
     $app->simulateMouseButton(0, false);
-    $v = $app->toggle("Flag", false);
+    $v = $app->widgets()->toggle("Flag", false);
     $app->frame();
     $flipped = ($v === true);
-    $app->toggle("Flag", false);
+    $app->widgets()->toggle("Flag", false);
     $t2 = $app->lastRect();
     if ($t2["w"] > 0) { $tx = $t2["x"] + $t2["w"] / 2; $ty = $t2["y"] + $t2["h"] / 2; }
 }

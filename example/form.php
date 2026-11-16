@@ -20,29 +20,29 @@ while ($app->frame()) {
     $app->secondary("值由 PHP 持有：每帧传入、取回新值");
 
     $app->label("文本");
-    $name = $app->input("f-name", $name, 256, ["label" => "姓名", "placeholder" => "请输入"]);
-    $bio = $app->textarea("f-bio", $bio, 4096, ["label" => "简介"]);
-    $tags = $app->tagInput("f-tags", $tags, 512);
+    $name = $app->form()->input("f-name", $name, 256, ["label" => "姓名", "placeholder" => "请输入"]);
+    $bio = $app->form()->textarea("f-bio", $bio, 4096, ["label" => "简介"]);
+    $tags = $app->form()->tagInput("f-tags", $tags, 512);
 
     $app->label("数值");
-    $age = $app->number("f-age", $age, 0, 120);
-    $size = $app->slider("f-size", $size, 0.0, 1.0);
-    $lohi = $app->rangeSlider("f-lohi", 20.0, 80.0, 0.0, 100.0);
-    $app->muted("范围: " . $lohi[0] . " ~ " . $lohi[1]);
+    $age = $app->form()->number("f-age", $age, 0, 120);
+    $size = $app->form()->slider("f-size", $size, 0.0, 1.0);
+    $lohi = $app->form()->rangeSlider("f-lohi", 20.0, 80.0, 0.0, 100.0);
+    $app->widgets()->muted("范围: " . $lohi[0] . " ~ " . $lohi[1]);
 
     $app->label("选择");
-    $agree = $app->checkbox("我已阅读协议", $agree);
-    $role = $app->radioGroup("f-role", ["开发", "设计", "产品"], $role);
-    $rating = $app->rating("f-rate", $rating, 5);
-    $theme = $app->segmented("f-theme", ["浅色", "深色"], $theme);
+    $agree = $app->form()->checkbox("我已阅读协议", $agree);
+    $role = $app->form()->radioGroup("f-role", ["开发", "设计", "产品"], $role);
+    $rating = $app->form()->rating("f-rate", $rating, 5);
+    $theme = $app->form()->segmented("f-theme", ["浅色", "深色"], $theme);
 
     $app->label("日期时间");
-    $d = $app->datePicker("f-date", [2026, 11, 15]);
-    $app->muted("选中: " . $d[0] . "-" . $d[1] . "-" . $d[2]);
+    $d = $app->form()->datePicker("f-date", [2026, 11, 15]);
+    $app->widgets()->muted("选中: " . $d[0] . "-" . $d[1] . "-" . $d[2]);
 
-    $app->gap(8);
-    if ($app->button("提交")) {
-        $app->toast("已提交: " . $name . " / age=" . (int)$age . " / agree=" . ($agree ? "Y" : "N"));
+    $app->widgets()->gap(8);
+    if ($app->widgets()->button("提交")) {
+        $app->layout()->toast("已提交: " . $name . " / age=" . (int)$age . " / agree=" . ($agree ? "Y" : "N"));
     }
 }
 

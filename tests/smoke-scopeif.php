@@ -15,9 +15,9 @@ function check(bool $cond, string $name): void {
 $app = new \Tphp\Tui\App("scopeif", 480, 360, true);
 $app->frame();
 $open = true;
-$begin = $app->dialogBegin("漏配对", $open);
+$begin = $app->layout()->dialogBegin("漏配对", $open);
 check($begin === true, "dialog-begin-open");
-// 故意漏掉 $app->dialogEnd();
+// 故意漏掉 $app->layout()->dialogEnd();
 
 $thrown = false;
 $msg = "";
@@ -43,7 +43,7 @@ $app->destroy();
 $app2 = new \Tphp\Tui\App("scopeif-closed", 480, 360, true);
 $app2->frame();
 $closed = false;
-$b2 = $app2->dialogBegin("关态", $closed);
+$b2 = $app2->layout()->dialogBegin("关态", $closed);
 check($b2 === false, "dialog-begin-closed");
 // 关态下不调 End 是允许的（g_dialog_on 本就 false）
 $ok2 = true;

@@ -38,6 +38,7 @@ double tui_arg_float(VM *vm, TVal *args, int n, int i, const char *who,
 /* ---- tui 枚举类的小写 FQCN（各域文件共享；tui_arg_enum 按名查表） ---- */
 #define TUI_LC_BUTTON_VARIANT "tphp\\tui\\buttonvariant"
 #define TUI_LC_FONT_ROLE      "tphp\\tui\\fontrole"
+#define TUI_LC_LAYOUT_TYPE    "tphp\\tui\\layouttype"
 
 /* ---- 枚举 case 读取（Tphp\Tui\* 枚举类；兼容历史 int 传参） ----
  * enum_lc = 枚举类 FQCN 小写（如 "tphp\\tui\\buttonvariant"）。按名查表而
@@ -80,8 +81,26 @@ void tui_content_scopeif_clear(void);
 const char *tui_scopeif_unclosed(void);
 void tui_scopeif_clear(void);   /* destroy 时清残留，避免污染下一个 App 实例 */
 
-/* ---- 类注册（teb 同款模式；tui_cls_new/add_ctor/add_prop 留在 tui.c） ---- */
+/* ---- 类构建 / 注册（teb 同款模式；各域共用） ---- */
+TClass *tui_cls_new(const char *fqcn);            /* CK_CLASS，全 -1 魔法方法槽 */
+void tui_cls_add_ctor(TClass *cls, void *fn);
+void tui_cls_add_prop(TClass *cls, const char *name);  /* private int/null 槽 */
 void tui_cls_add_native(TClass *cls, const char *name, void *fn, bool is_static);
+
+/* ---- 子对象（阶段 B）----
+ * 建一个域子对象：tphp_obj_alloc 新建，把父的 props["app"] 复制到子同名槽。
+ * 引用计数（§7 纪律）：alloc 的 rc=1 转移给返回值；复制的 app 值是 TV_INT
+ * 标量无需 addref。子对象由父的私有槽持有（调用方另 addref），destroy 时 release。 */
+TObj *tui_make_child(VM *vm, TObj *parent, TClass *cls);
+
+/* 按名读写 int 私有槽（不存在返回 -1 时写操作 no-op、读返回 0）。
+ * 用于 Layout.depth 配平计数——不硬编码槽号。 */
+int  tui_prop_int(TObj *o, const char *name);
+void tui_prop_set_int(TObj *o, const char *name, int v);
+
+/* Layout 容器 depth 配平：begin 自增、end 自减并校验（阶段 B.4） */
+void tui_depth_inc(TObj *o);
+void tui_depth_dec(VM *vm, TObj *o, const char *who);
 
 /* ---- 数组转换：PHP array → C 数组（tm_malloc 分配，插入序） ----
  * 空数组合法：*n = 0 且返回 NULL；v 不是数组抛 TypeError。
