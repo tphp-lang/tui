@@ -30,7 +30,8 @@ while ($app->frame()) {
         $clicks++;
     }
     $app->text("已点击 {$clicks} 次");
-    $app->layout()->boxEnd();
+    $app->layout()->boxEnd();               // 关 row（row/column 都用 boxEnd 闭合）
+    $app->layout()->boxEnd();               // 关 column
 }
 
 echo "bye\n";
