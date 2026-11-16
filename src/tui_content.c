@@ -31,7 +31,7 @@ static char *dup_s(const char *s) {
 
 static TArr *rows_of(VM *vm, TVal *v, const char *who, const char *pname) {
     if (v->t != T_ARR)
-        RAISE(vm, "TypeError", "%s(): argument %s must be of type array, %s given",
+        RAISE(vm, "TypeError", "%s: argument %s must be of type array, %s given",
               who, pname, tphp_val_type_name(*v));
     return (TArr *)v->u.p;
 }
@@ -39,7 +39,7 @@ static TArr *rows_of(VM *vm, TVal *v, const char *who, const char *pname) {
 static TArr *row_arr(VM *vm, TVal e, const char *who, const char *pname, int pos) {
     if (e.t != T_ARR)
         RAISE(vm, "TypeError",
-              "%s(): array element %d of argument %s must be of type array, %s given",
+              "%s: array element %d of argument %s must be of type array, %s given",
               who, pos, pname, tphp_val_type_name(e));
     return (TArr *)e.u.p;
 }
@@ -48,7 +48,7 @@ static const char *row_req_str(VM *vm, TArr *row, const char *k,
                                const char *who, const char *pname, int pos) {
     TVal *v = row_get(row, k);
     if (!v || v->t != T_STR)
-        RAISE(vm, "TypeError", "%s(): %s[%d][\"%s\"] must be a string",
+        RAISE(vm, "TypeError", "%s: %s[%d][\"%s\"] must be a string",
               who, pname, pos - 1, k);
     return tstr_val((TStr *)v->u.p);
 }
@@ -58,7 +58,7 @@ static const char *row_opt_str(VM *vm, TArr *row, const char *k, const char *who
     TVal *v = row_get(row, k);
     if (!v || v->t == T_NULL) return NULL;
     if (v->t != T_STR)
-        RAISE(vm, "TypeError", "%s(): %s[%d][\"%s\"] must be a string",
+        RAISE(vm, "TypeError", "%s: %s[%d][\"%s\"] must be a string",
               who, pname, pos - 1, k);
     return tstr_val((TStr *)v->u.p);
 }
@@ -68,7 +68,7 @@ static double row_opt_num(VM *vm, TArr *row, const char *k, double def,
     TVal *v = row_get(row, k);
     if (!v || v->t == T_NULL) return def;
     if (v->t != T_INT && v->t != T_FLOAT)
-        RAISE(vm, "TypeError", "%s(): %s[%d][\"%s\"] must be numeric",
+        RAISE(vm, "TypeError", "%s: %s[%d][\"%s\"] must be numeric",
               who, pname, pos - 1, k);
     return tval_to_float(*v);
 }
@@ -78,7 +78,7 @@ static int64_t row_opt_int(VM *vm, TArr *row, const char *k, int64_t def,
     TVal *v = row_get(row, k);
     if (!v || v->t == T_NULL) return def;
     if (v->t != T_INT)
-        RAISE(vm, "TypeError", "%s(): %s[%d][\"%s\"] must be an int",
+        RAISE(vm, "TypeError", "%s: %s[%d][\"%s\"] must be an int",
               who, pname, pos - 1, k);
     return v->u.i;
 }
@@ -88,7 +88,7 @@ static bool row_opt_bool(VM *vm, TArr *row, const char *k, bool def,
     TVal *v = row_get(row, k);
     if (!v || v->t == T_NULL) return def;
     if (v->t != T_TRUE && v->t != T_FALSE)
-        RAISE(vm, "TypeError", "%s(): %s[%d][\"%s\"] must be a bool",
+        RAISE(vm, "TypeError", "%s: %s[%d][\"%s\"] must be a bool",
               who, pname, pos - 1, k);
     return v->t == T_TRUE;
 }
@@ -106,7 +106,7 @@ static bool row_opt_date(VM *vm, TArr *row, const char *k, cui_date *out,
     TVal *v = row_get(row, k);
     if (!v || v->t == T_NULL) return false;
     if (v->t != T_ARR)
-        RAISE(vm, "TypeError", "%s(): %s[%d][\"%s\"] must be a [y,m,d] array",
+        RAISE(vm, "TypeError", "%s: %s[%d][\"%s\"] must be a [y,m,d] array",
               who, pname, pos - 1, k);
     TArr *a = (TArr *)v->u.p;
     int64_t vals[3] = { 0, 0, 0 };
@@ -115,12 +115,12 @@ static bool row_opt_date(VM *vm, TArr *row, const char *k, cui_date *out,
         TVal e = a->data[i];
         if (e.t == T_UNDEF) continue;
         if (e.t != T_INT)
-            RAISE(vm, "TypeError", "%s(): %s[%d][\"%s\"][%d] must be an int",
+            RAISE(vm, "TypeError", "%s: %s[%d][\"%s\"][%d] must be an int",
                   who, pname, pos - 1, k, n);
         vals[n++] = e.u.i;
     }
     if (n != 3)
-        RAISE(vm, "ValueError", "%s(): %s[%d][\"%s\"] must have 3 elements",
+        RAISE(vm, "ValueError", "%s: %s[%d][\"%s\"] must have 3 elements",
               who, pname, pos - 1, k);
     out->year = (int)vals[0];
     out->month = (int)vals[1];
@@ -151,7 +151,7 @@ static void res_arr(TArr *a, const char *k, TVal v) {
 /* ---- 代码 / 文本 ---- */
 
 static TVal nm_code_block(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::codeBlock()";
+    const char *who = "Tphp\\Tui\\Content::codeBlock()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     const char *code = tui_arg_str(vm, args, n, 1, who);
     const char *lang = tui_opt_str(vm, args, n, 2, "", who, "lang");
@@ -165,7 +165,7 @@ static TVal nm_code_block(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_json_view(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::jsonView()";
+    const char *who = "Tphp\\Tui\\Content::jsonView()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     const char *json = tui_arg_str(vm, args, n, 1, who);
     bool action = cui_json_view_ex(tui_need_ui(vm, (TObj *)self, who), id, json, NULL);
@@ -174,7 +174,7 @@ static TVal nm_json_view(VM *vm, void *self, TVal *args, int n) {
 
 /* markdown：返回 ['link'=>, 'task_offset'=>, 'task_line'=>, 'task_checked'=>, 'height'=>] */
 static TVal nm_markdown(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::markdown()";
+    const char *who = "Tphp\\Tui\\Content::markdown()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     const char *text = tui_arg_str(vm, args, n, 1, who);
     (void)n;   /* v1 不透传 opts：markdown_opts 走 CUI 默认（fit_content/compact 等后续增量） */
@@ -192,7 +192,7 @@ static TVal nm_markdown(VM *vm, void *self, TVal *args, int n) {
 /* codeEditor：buffer 往返 + 位置/编辑结果 →
  * ['text'=>, 'changed'=>, 'line'=>, 'column'=>, 'search'=>, 'dirty'=>] */
 static TVal nm_code_editor(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::codeEditor()";
+    const char *who = "Tphp\\Tui\\Content::codeEditor()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     const char *code = tui_arg_str(vm, args, n, 1, who);
     const char *lang = tui_opt_str(vm, args, n, 2, "", who, "lang");
@@ -222,7 +222,7 @@ static TVal nm_code_editor(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_code_editor_goto(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::codeEditorGoto()";
+    const char *who = "Tphp\\Tui\\Content::codeEditorGoto()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int64_t line = tui_arg_int(vm, args, n, 1, who, "line");
     int64_t col = tui_opt_int(vm, args, n, 2, 1, who, "column");
@@ -231,7 +231,7 @@ static TVal nm_code_editor_goto(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_code_editor_select(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::codeEditorSelect()";
+    const char *who = "Tphp\\Tui\\Content::codeEditorSelect()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int64_t anchor = tui_arg_int(vm, args, n, 1, who, "anchor");
     int64_t cursor = tui_arg_int(vm, args, n, 2, who, "cursor");
@@ -241,7 +241,7 @@ static TVal nm_code_editor_select(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_code_editor_find(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::codeEditorFind()";
+    const char *who = "Tphp\\Tui\\Content::codeEditorFind()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     const char *q = tui_arg_str(vm, args, n, 1, who);
     cui_code_editor_find(tui_need_ui(vm, (TObj *)self, who), id, q);
@@ -250,7 +250,7 @@ static TVal nm_code_editor_find(VM *vm, void *self, TVal *args, int n) {
 
 /* diffView → ['added'=>,'removed'=>,'changes'=>,'current'=>] */
 static TVal nm_diff_view(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::diffView()";
+    const char *who = "Tphp\\Tui\\Content::diffView()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     const char *old_s = tui_arg_str(vm, args, n, 1, who);
     const char *new_s = tui_arg_str(vm, args, n, 2, who);
@@ -267,10 +267,10 @@ static TVal nm_diff_view(VM *vm, void *self, TVal *args, int n) {
 /* hexView：bytes 二进制串往返；选择静态暂存（单实例）→
  * ['start'=>,'length'=>,'cursor'=>,'hovered'=>,'copied'=>,'selected'=>] */
 static TVal nm_hex_view(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::hexView()";
+    const char *who = "Tphp\\Tui\\Content::hexView()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     if (n <= 1 || args[1].t != T_STR)
-        RAISE(vm, "TypeError", "%s(): argument bytes must be a string, %s given",
+        RAISE(vm, "TypeError", "%s: argument bytes must be a string, %s given",
               who, n <= 1 ? "null" : tphp_val_type_name(args[1]));
     TStr *bs = (TStr *)args[1].u.p;
     static cui_hex_selection sel;   /* 单实例：选择跨帧保持（zeroed = 无选择） */
@@ -290,11 +290,11 @@ static TVal nm_hex_view(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_hex_view_goto(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::hexViewGoto()";
+    const char *who = "Tphp\\Tui\\Content::hexViewGoto()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int64_t off = tui_arg_int(vm, args, n, 1, who, "offset");
     if (off < 0)
-        RAISE(vm, "ValueError", "%s(): offset must be >= 0", who);
+        RAISE(vm, "ValueError", "%s: offset must be >= 0", who);
     cui_hex_view_goto(tui_need_ui(vm, (TObj *)self, who), id, (size_t)off);
     return TV_NULL;
 }
@@ -312,11 +312,11 @@ void tui_content_state_free(void *p) {
 }
 
 static TVal nm_terminal_init(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::terminalInit()";
+    const char *who = "Tphp\\Tui\\Content::terminalInit()";
     int64_t text_cap = tui_opt_int(vm, args, n, 0, 65536, who, "textCap");
     int64_t line_cap = tui_opt_int(vm, args, n, 1, 4096, who, "lineCap");
     if (text_cap < 256 || line_cap < 16)
-        RAISE(vm, "ValueError", "%s(): textCap >= 256 and lineCap >= 16 required", who);
+        RAISE(vm, "ValueError", "%s: textCap >= 256 and lineCap >= 16 required", who);
     (void)self;
     tm_free(GSTATE->term_text);
     tm_free(GSTATE->term_lines);
@@ -330,30 +330,30 @@ static TVal nm_terminal_init(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_terminal_write(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::terminalWrite()";
+    const char *who = "Tphp\\Tui\\Content::terminalWrite()";
     (void)self;
     if (!GSTATE->term_ready)
-        RAISE(vm, "LogicException", "%s(): call terminalInit() first", who);
+        RAISE(vm, "LogicException", "%s: call terminalInit() first", who);
     const char *s = tui_arg_str(vm, args, n, 0, who);
     cui_terminal_write(&GSTATE->term_t, s, -1);   /* len<0 → strlen */
     return TV_NULL;
 }
 
 static TVal nm_terminal_clear(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::terminalClear()";
+    const char *who = "Tphp\\Tui\\Content::terminalClear()";
     (void)self;
     if (!GSTATE->term_ready)
-        RAISE(vm, "LogicException", "%s(): call terminalInit() first", who);
+        RAISE(vm, "LogicException", "%s: call terminalInit() first", who);
     cui_terminal_clear(&GSTATE->term_t);
     return TV_NULL;
 }
 
 /* terminal：返回 ['command'=>string|null, 'interrupt'=>bool] */
 static TVal nm_terminal(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::terminal()";
+    const char *who = "Tphp\\Tui\\Content::terminal()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     if (!GSTATE->term_ready)
-        RAISE(vm, "LogicException", "%s(): call terminalInit() first", who);
+        RAISE(vm, "LogicException", "%s: call terminalInit() first", who);
     cui_terminal_result r = cui_terminal_ex(tui_need_ui(vm, (TObj *)self, who),
                                             id, &GSTATE->term_t, NULL);
     TArr *a = res_new();
@@ -363,11 +363,11 @@ static TVal nm_terminal(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_log_init(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::logInit()";
+    const char *who = "Tphp\\Tui\\Content::logInit()";
     int64_t text_cap = tui_opt_int(vm, args, n, 0, 65536, who, "textCap");
     int64_t line_cap = tui_opt_int(vm, args, n, 1, 2048, who, "lineCap");
     if (text_cap < 256 || line_cap < 16)
-        RAISE(vm, "ValueError", "%s(): textCap >= 256 and lineCap >= 16 required", who);
+        RAISE(vm, "ValueError", "%s: textCap >= 256 and lineCap >= 16 required", who);
     (void)self;
     tm_free(GSTATE->log_text);
     tm_free(GSTATE->log_lines);
@@ -381,34 +381,34 @@ static TVal nm_log_init(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_log_append(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::logAppend()";
+    const char *who = "Tphp\\Tui\\Content::logAppend()";
     (void)self;
     if (!GSTATE->log_ready)
-        RAISE(vm, "LogicException", "%s(): call logInit() first", who);
+        RAISE(vm, "LogicException", "%s: call logInit() first", who);
     int64_t level = tui_arg_int(vm, args, n, 0, who, "level");
     const char *text = tui_arg_str(vm, args, n, 1, who);
     if (level < 0 || level >= CUI_LOG_LEVEL_COUNT)
-        RAISE(vm, "ValueError", "%s(): level must be in 0..%d", who,
+        RAISE(vm, "ValueError", "%s: level must be in 0..%d", who,
               (int)CUI_LOG_LEVEL_COUNT - 1);
     cui_log_append(&GSTATE->log_t, (cui_log_level)level, "%s", text);
     return TV_NULL;
 }
 
 static TVal nm_log_clear(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::logClear()";
+    const char *who = "Tphp\\Tui\\Content::logClear()";
     (void)self;
     if (!GSTATE->log_ready)
-        RAISE(vm, "LogicException", "%s(): call logInit() first", who);
+        RAISE(vm, "LogicException", "%s: call logInit() first", who);
     cui_log_clear(&GSTATE->log_t);
     return TV_NULL;
 }
 
 /* logView：筛选/跟随由组件内部工具条管理（CUI 自持），此处只渲染 → null */
 static TVal nm_log_view(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::logView()";
+    const char *who = "Tphp\\Tui\\Content::logView()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     if (!GSTATE->log_ready)
-        RAISE(vm, "LogicException", "%s(): call logInit() first", who);
+        RAISE(vm, "LogicException", "%s: call logInit() first", who);
     bool timestamps = tui_opt_bool(vm, args, n, 1, false, who, "timestamps");
     cui_log_view_opts o;
     memset(&o, 0, sizeof o);
@@ -421,7 +421,7 @@ static TVal nm_log_view(VM *vm, void *self, TVal *args, int n) {
 
 /* commands=[['title'=>,'icon'=>?,'group'=>?,'shortcut'=>?]] */
 static TVal nm_command_palette(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::commandPalette()";
+    const char *who = "Tphp\\Tui\\Content::commandPalette()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     bool open = tui_arg_bool(vm, args, n, 1, who, "open");
     TArr *rows = rows_of(vm, &args[2], who, "commands");
@@ -477,7 +477,7 @@ static TVal nm_command_palette(VM *vm, void *self, TVal *args, int n) {
 /* tour steps=[['title'=>,'body'=>,'placement'=>0,'target'=>0]]；
  * 返回 ['event'=>,'step'=>]（step 进出） */
 static TVal nm_tour(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::tour()";
+    const char *who = "Tphp\\Tui\\Content::tour()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "steps");
     int step = (int)tui_arg_int(vm, args, n, 2, who, "step");
@@ -528,12 +528,12 @@ static TVal nm_tour(VM *vm, void *self, TVal *args, int n) {
 /* gantt：tasks=[['name'=>,'owner'=>?,'start'=>0,'end'=>0,'progress'=>0,'tone'=>0,
  *                'depends_on'=>0,'milestone'=>false]]；origin=[y,m,d] */
 static TVal nm_gantt(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::gantt()";
+    const char *who = "Tphp\\Tui\\Content::gantt()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "tasks");
     cui_date origin;
     if (args[2].t != T_ARR)
-        RAISE(vm, "TypeError", "%s(): argument origin must be a [y,m,d] array", who);
+        RAISE(vm, "TypeError", "%s: argument origin must be a [y,m,d] array", who);
     {
         TArr *oa = (TArr *)args[2].u.p;
         int64_t ov[3] = { 0, 0, 0 };
@@ -542,18 +542,18 @@ static TVal nm_gantt(VM *vm, void *self, TVal *args, int n) {
             TVal e = oa->data[i];
             if (e.t == T_UNDEF) continue;
             if (e.t != T_INT)
-                RAISE(vm, "TypeError", "%s(): origin[%d] must be an int", who, on);
+                RAISE(vm, "TypeError", "%s: origin[%d] must be an int", who, on);
             ov[on++] = e.u.i;
         }
         if (on != 3)
-            RAISE(vm, "ValueError", "%s(): origin must have 3 elements [y,m,d]", who);
+            RAISE(vm, "ValueError", "%s: origin must have 3 elements [y,m,d]", who);
         origin.year = (int)ov[0];
         origin.month = (int)ov[1];
         origin.day = (int)ov[2];
     }
     int64_t days = tui_arg_int(vm, args, n, 3, who, "days");
     if (days < 1 || days > 400)
-        RAISE(vm, "ValueError", "%s(): days must be in 1..400", who);
+        RAISE(vm, "ValueError", "%s: days must be in 1..400", who);
     int cnt = count_rows(rows);
     cui_gantt_task *tasks = cnt ? tm_malloc(sizeof(cui_gantt_task) * (size_t)cnt) : NULL;
     char **strs = NULL;
@@ -607,7 +607,7 @@ static TVal nm_gantt(VM *vm, void *self, TVal *args, int n) {
 /* ---- 文件 ---- */
 
 static TVal nm_file_browser(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::fileBrowser()";
+    const char *who = "Tphp\\Tui\\Content::fileBrowser()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     const char *path_in = tui_arg_str(vm, args, n, 1, who);
     char path[1024];
@@ -625,7 +625,7 @@ static TVal nm_file_browser(VM *vm, void *self, TVal *args, int n) {
 
 /* filePicker → ['open'=>, 'path'=>]（open 进出、path 进出） */
 static TVal nm_file_picker(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::filePicker()";
+    const char *who = "Tphp\\Tui\\Content::filePicker()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     bool open = tui_arg_bool(vm, args, n, 1, who, "open");
     const char *path_in = tui_opt_str(vm, args, n, 2, "", who, "path");
@@ -642,7 +642,7 @@ static TVal nm_file_picker(VM *vm, void *self, TVal *args, int n) {
 /* ---- 图片纹理（句柄为 int） ---- */
 
 static TVal nm_image_load(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::imageLoad()";
+    const char *who = "Tphp\\Tui\\Content::imageLoad()";
     const char *path = tui_arg_str(vm, args, n, 0, who);
     int w = 0, h = 0;
     uint32_t tex = cui_image_load(tui_need_ui(vm, (TObj *)self, who), path, &w, &h);
@@ -654,28 +654,28 @@ static TVal nm_image_load(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_image_create(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::imageCreate()";
+    const char *who = "Tphp\\Tui\\Content::imageCreate()";
     int64_t w = tui_arg_int(vm, args, n, 0, who, "width");
     int64_t h = tui_arg_int(vm, args, n, 1, who, "height");
     if (n <= 2 || args[2].t != T_STR)
-        RAISE(vm, "TypeError", "%s(): argument rgba must be a binary string", who);
+        RAISE(vm, "TypeError", "%s: argument rgba must be a binary string", who);
     TStr *rgba = (TStr *)args[2].u.p;
     if (w < 1 || h < 1 || (int64_t)rgba->len < w * h * 4)
-        RAISE(vm, "ValueError", "%s(): rgba must be width*height*4 bytes", who);
+        RAISE(vm, "ValueError", "%s: rgba must be width*height*4 bytes", who);
     uint32_t tex = cui_image_create(tui_need_ui(vm, (TObj *)self, who),
                                     (int)w, (int)h, (const uint8_t *)rgba->c);
     return TV_INT((int64_t)tex);
 }
 
 static TVal nm_image_destroy(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::imageDestroy()";
+    const char *who = "Tphp\\Tui\\Content::imageDestroy()";
     int64_t tex = tui_arg_int(vm, args, n, 0, who, "tex");
     cui_image_destroy(tui_need_ui(vm, (TObj *)self, who), (uint32_t)tex);
     return TV_NULL;
 }
 
 static TVal nm_image(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::image()";
+    const char *who = "Tphp\\Tui\\Content::image()";
     int64_t tex = tui_arg_int(vm, args, n, 0, who, "tex");
     cui_image_ex(tui_need_ui(vm, (TObj *)self, who), (uint32_t)tex, NULL);
     return TV_NULL;
@@ -683,7 +683,7 @@ static TVal nm_image(VM *vm, void *self, TVal *args, int n) {
 
 /* imageView：视图状态静态单例（zoom/cx/cy 跨帧）→ ['zoom'=>,'cx'=>,'cy'=>] */
 static TVal nm_image_viewer(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::imageViewer()";
+    const char *who = "Tphp\\Tui\\Content::imageViewer()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int64_t tex = tui_arg_int(vm, args, n, 1, who, "tex");
     int64_t w = tui_arg_int(vm, args, n, 2, who, "width");
@@ -700,7 +700,7 @@ static TVal nm_image_viewer(VM *vm, void *self, TVal *args, int n) {
 
 /* cropper → ['x'=>,'y'=>,'w'=>,'h'=>]（裁剪矩形跨帧静态） */
 static TVal nm_cropper(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::cropper()";
+    const char *who = "Tphp\\Tui\\Content::cropper()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int64_t tex = tui_arg_int(vm, args, n, 1, who, "tex");
     int64_t w = tui_arg_int(vm, args, n, 2, who, "width");
@@ -719,7 +719,7 @@ static TVal nm_cropper(VM *vm, void *self, TVal *args, int n) {
 /* ---- emoji ---- */
 
 static TVal nm_emoji(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::emoji()";
+    const char *who = "Tphp\\Tui\\Content::emoji()";
     const char *s = tui_arg_str(vm, args, n, 0, who);
     double size = tui_opt_float(vm, args, n, 1, 0, who, "size");
     cui_emoji(tui_need_ui(vm, (TObj *)self, who), s, (float)size);
@@ -727,7 +727,7 @@ static TVal nm_emoji(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_emoji_picker(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::emojiPicker()";
+    const char *who = "Tphp\\Tui\\Content::emojiPicker()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     const char *picked = cui_emoji_picker_ex(tui_need_ui(vm, (TObj *)self, who),
                                              id, NULL);
@@ -737,14 +737,14 @@ static TVal nm_emoji_picker(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_emoji_supported(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::emojiSupported()";
+    const char *who = "Tphp\\Tui\\Content::emojiSupported()";
     const char *s = tui_arg_str(vm, args, n, 0, who);
     return cui_emoji_supported(tui_need_ui(vm, (TObj *)self, who), s, (int)strlen(s))
         ? TV_TRUE : TV_FALSE;
 }
 
 static TVal nm_emoji_font_load_file(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::emojiFontLoadFile()";
+    const char *who = "Tphp\\Tui\\Content::emojiFontLoadFile()";
     const char *path = tui_arg_str(vm, args, n, 0, who);
     return cui_emoji_font_load_file(tui_need_ui(vm, (TObj *)self, who), path)
         ? TV_TRUE : TV_FALSE;
@@ -753,7 +753,7 @@ static TVal nm_emoji_font_load_file(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_emoji_font_load_system(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    const char *who = "Tphp\\Tui\\App::emojiFontLoadSystem()";
+    const char *who = "Tphp\\Tui\\Content::emojiFontLoadSystem()";
     return cui_emoji_font_load_system(tui_need_ui(vm, (TObj *)self, who))
         ? TV_TRUE : TV_FALSE;
 }
@@ -761,7 +761,7 @@ static TVal nm_emoji_font_load_system(VM *vm, void *self, TVal *args, int n) {
 /* ---- 社交 / 评论 ---- */
 
 static TVal nm_chat_message(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::chatMessage()";
+    const char *who = "Tphp\\Tui\\Content::chatMessage()";
     const char *text = tui_arg_str(vm, args, n, 0, who);
     bool outgoing = tui_opt_bool(vm, args, n, 1, false, who, "outgoing");
     const char *author = tui_opt_str(vm, args, n, 2, "", who, "author");
@@ -776,21 +776,21 @@ static TVal nm_chat_message(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_chat_divider(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::chatDivider()";
+    const char *who = "Tphp\\Tui\\Content::chatDivider()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     cui_chat_divider(tui_need_ui(vm, (TObj *)self, who), label);
     return TV_NULL;
 }
 
 static TVal nm_typing_indicator(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::typingIndicator()";
+    const char *who = "Tphp\\Tui\\Content::typingIndicator()";
     const char *name = tui_arg_str(vm, args, n, 0, who);
     cui_typing_indicator(tui_need_ui(vm, (TObj *)self, who), name);
     return TV_NULL;
 }
 
 static TVal nm_comment(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::comment()";
+    const char *who = "Tphp\\Tui\\Content::comment()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     const char *author = tui_arg_str(vm, args, n, 1, who);
     const char *text = tui_arg_str(vm, args, n, 2, who);
@@ -800,7 +800,7 @@ static TVal nm_comment(VM *vm, void *self, TVal *args, int n) {
 
 /* presence：users=[['name'=>,'color'=>0xRRGGBBAA?,'idle'=>false,'tex'=>0]] */
 static TVal nm_presence(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::presence()";
+    const char *who = "Tphp\\Tui\\Content::presence()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "users");
     int64_t max_vis = tui_opt_int(vm, args, n, 2, 3, who, "maxVisible");
@@ -842,7 +842,7 @@ static TVal nm_presence(VM *vm, void *self, TVal *args, int n) {
 /* ---- 签名板 ---- */
 
 static TVal nm_signature_pad(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::signaturePad()";
+    const char *who = "Tphp\\Tui\\Content::signaturePad()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     return cui_signature_pad_ex(tui_need_ui(vm, (TObj *)self, who), id, NULL)
         ? TV_TRUE : TV_FALSE;
@@ -850,7 +850,7 @@ static TVal nm_signature_pad(VM *vm, void *self, TVal *args, int n) {
 
 /* signaturePoints → ['points'=>[[x,y],...], 'strokes'=>[n,...]]（调用内拷出） */
 static TVal nm_signature_points(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::signaturePoints()";
+    const char *who = "Tphp\\Tui\\Content::signaturePoints()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     const cui_vec2 *pts = NULL;
     const int *ends = NULL;
@@ -873,7 +873,7 @@ static TVal nm_signature_points(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_signature_clear(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::signatureClear()";
+    const char *who = "Tphp\\Tui\\Content::signatureClear()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     cui_signature_clear(tui_need_ui(vm, (TObj *)self, who), id);
     return TV_NULL;
@@ -897,7 +897,7 @@ void tui_content_scopeif_clear(TObj *content) {
 }
 
 static TVal nm_node_editor_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::nodeEditorBegin()";
+    const char *who = "Tphp\\Tui\\Content::nodeEditorBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     static cui_node_view view;   /* zeroed = origin/1x */
     GSTATE->nodeed_on = cui_node_editor_begin_ex(tui_need_ui(vm, (TObj *)self, who),
@@ -915,7 +915,7 @@ static TVal nm_node_editor_end(VM *vm, void *self, TVal *args, int n) {
     (void)n;
     if (GSTATE->nodeed_on) {
         cui_node_editor_end(tui_need_ui(vm, (TObj *)self,
-                                        "Tphp\\Tui\\App::nodeEditorEnd()"));
+                                        "Tphp\\Tui\\Content::nodeEditorEnd()"));
         GSTATE->nodeed_on = false;
     }
     return TV_NULL;
@@ -923,7 +923,7 @@ static TVal nm_node_editor_end(VM *vm, void *self, TVal *args, int n) {
 
 /* nodeBegin → false 或 ['x'=>,'y'=>,'selected'=>]（x/y 进出） */
 static TVal nm_node_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::nodeBegin()";
+    const char *who = "Tphp\\Tui\\Content::nodeBegin()";
     int64_t node_id = tui_arg_int(vm, args, n, 0, who, "nodeId");
     float x = (float)tui_arg_float(vm, args, n, 1, who, "x");
     float y = (float)tui_arg_float(vm, args, n, 2, who, "y");
@@ -940,12 +940,12 @@ static TVal nm_node_begin(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_node_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    cui_node_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\App::nodeEnd()"));
+    cui_node_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\Content::nodeEnd()"));
     return TV_NULL;
 }
 
 static TVal nm_node_input(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::nodeInput()";
+    const char *who = "Tphp\\Tui\\Content::nodeInput()";
     int64_t pin = tui_arg_int(vm, args, n, 0, who, "pinId");
     const char *label = tui_arg_str(vm, args, n, 1, who);
     int64_t type = tui_opt_int(vm, args, n, 2, 0, who, "type");
@@ -958,7 +958,7 @@ static TVal nm_node_input(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_node_output(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::nodeOutput()";
+    const char *who = "Tphp\\Tui\\Content::nodeOutput()";
     int64_t pin = tui_arg_int(vm, args, n, 0, who, "pinId");
     const char *label = tui_arg_str(vm, args, n, 1, who);
     int64_t type = tui_opt_int(vm, args, n, 2, 0, who, "type");
@@ -974,7 +974,7 @@ static TVal nm_node_content_begin(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_node_content_begin(tui_need_ui(vm, (TObj *)self,
-                                       "Tphp\\Tui\\App::nodeContentBegin()"));
+                                       "Tphp\\Tui\\Content::nodeContentBegin()"));
     return TV_NULL;
 }
 
@@ -982,12 +982,12 @@ static TVal nm_node_content_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_node_content_end(tui_need_ui(vm, (TObj *)self,
-                                     "Tphp\\Tui\\App::nodeContentEnd()"));
+                                     "Tphp\\Tui\\Content::nodeContentEnd()"));
     return TV_NULL;
 }
 
 static TVal nm_node_link(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::nodeLink()";
+    const char *who = "Tphp\\Tui\\Content::nodeLink()";
     int64_t link = tui_arg_int(vm, args, n, 0, who, "linkId");
     int64_t from = tui_arg_int(vm, args, n, 1, who, "fromPin");
     int64_t to = tui_arg_int(vm, args, n, 2, who, "toPin");
@@ -999,7 +999,7 @@ static TVal nm_node_link(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_node_link_created(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    const char *who = "Tphp\\Tui\\App::nodeLinkCreated()";
+    const char *who = "Tphp\\Tui\\Content::nodeLinkCreated()";
     int from = 0, to = 0;
     if (!cui_node_link_created(tui_need_ui(vm, (TObj *)self, who), &from, &to))
         return TV_NULL;
@@ -1012,7 +1012,7 @@ static TVal nm_node_link_created(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_node_link_removed(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    const char *who = "Tphp\\Tui\\App::nodeLinkRemoved()";
+    const char *who = "Tphp\\Tui\\Content::nodeLinkRemoved()";
     int id = 0;
     if (!cui_node_link_removed(tui_need_ui(vm, (TObj *)self, who), &id))
         return TV_NULL;
@@ -1022,7 +1022,7 @@ static TVal nm_node_link_removed(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_node_deleted(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    const char *who = "Tphp\\Tui\\App::nodeDeleted()";
+    const char *who = "Tphp\\Tui\\Content::nodeDeleted()";
     int id = 0;
     if (!cui_node_deleted(tui_need_ui(vm, (TObj *)self, who), &id))
         return TV_NULL;
@@ -1035,7 +1035,7 @@ static TVal nm_node_deleted(VM *vm, void *self, TVal *args, int n) {
  *                 'failed'=>,'skipped'=>,'total'=>]
  * items=[['name'=>,'depth'=>0,'status'=>0,'duration'=>0.0,'message'=>?]] */
 static TVal nm_test_explorer(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::testExplorer()";
+    const char *who = "Tphp\\Tui\\Content::testExplorer()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "items");
     int cnt = count_rows(rows);
@@ -1095,7 +1095,7 @@ static TVal nm_test_explorer(VM *vm, void *self, TVal *args, int n) {
 /* stackTrace → ['clicked'=>]；frames=[['function'=>,'file'=>,'line'=>0,
  *   'column'=>0,'external'=>false,'source'=>[...]?,'source_first'=>1]] */
 static TVal nm_stack_trace(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::stackTrace()";
+    const char *who = "Tphp\\Tui\\Content::stackTrace()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     const char *title = tui_arg_str(vm, args, n, 1, who);
     const char *message = tui_arg_str(vm, args, n, 2, who);
@@ -1178,16 +1178,16 @@ static TVal nm_stack_trace(VM *vm, void *self, TVal *args, int n) {
 /* requestBar → ['send'=>,'cancel'=>,'changed'=>,'method'=>,'url'=>]
  * url 为 buffer 往返（值由 PHP 持有） */
 static TVal nm_request_bar(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::requestBar()";
+    const char *who = "Tphp\\Tui\\Content::requestBar()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     const char *url_in = tui_arg_str(vm, args, n, 1, who);
     int method = (int)tui_opt_int(vm, args, n, 2, 0, who, "method");
     bool loading = tui_opt_bool(vm, args, n, 3, false, who, "loading");
     const char *ph = tui_opt_str(vm, args, n, 4, "", who, "placeholder");
     if (method < 0 || method > 6)
-        RAISE(vm, "ValueError", "%s(): method must be in 0..6", who);
+        RAISE(vm, "ValueError", "%s: method must be in 0..6", who);
     if (strlen(url_in) + 1 > 2048)
-        RAISE(vm, "ValueError", "%s(): url is longer than 2047 bytes", who);
+        RAISE(vm, "ValueError", "%s: url is longer than 2047 bytes", who);
     char url[2048];
     snprintf(url, sizeof url, "%s", url_in);
     cui_request_bar_opts o;
@@ -1207,7 +1207,7 @@ static TVal nm_request_bar(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_response_status(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::responseStatus()";
+    const char *who = "Tphp\\Tui\\Content::responseStatus()";
     int64_t status = tui_arg_int(vm, args, n, 0, who, "status");
     double seconds = tui_arg_float(vm, args, n, 1, who, "seconds");
     double bytes = tui_arg_float(vm, args, n, 2, who, "bytes");
@@ -1218,7 +1218,7 @@ static TVal nm_response_status(VM *vm, void *self, TVal *args, int n) {
 
 /* uptime → ['service'=>,'day'=>]；services=[['name'=>,'days'=>float[]]] */
 static TVal nm_uptime(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::uptime()";
+    const char *who = "Tphp\\Tui\\Content::uptime()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "services");
     int cnt = count_rows(rows);
@@ -1235,7 +1235,7 @@ static TVal nm_uptime(VM *vm, void *self, TVal *args, int n) {
         row_req_str(vm, row, "name", who, "services", pos + 1);
         TVal *dv = row_get(row, "days");
         if (!dv || dv->t != T_ARR)
-            RAISE(vm, "TypeError", "%s(): services[%d][\"days\"] must be an array",
+            RAISE(vm, "TypeError", "%s: services[%d][\"days\"] must be an array",
                   who, pos);
         int dn = 0;
         double *d = tui_floats(vm, dv, who, "services.days", &dn);
@@ -1277,7 +1277,7 @@ static TVal nm_uptime(VM *vm, void *self, TVal *args, int n) {
 /* timeHistogram → ['selection_changed'=>,'hovered'=>,'sel_start'=>,'sel_end'=>]
  * series=[['name'=>,'counts'=>float[],'tone'=>0]]；selStart/selEnd 进出 */
 static TVal nm_time_histogram(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::timeHistogram()";
+    const char *who = "Tphp\\Tui\\Content::timeHistogram()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     double start = tui_arg_float(vm, args, n, 1, who, "start");
     double bucket_s = tui_arg_float(vm, args, n, 2, who, "bucketSeconds");
@@ -1286,7 +1286,7 @@ static TVal nm_time_histogram(VM *vm, void *self, TVal *args, int n) {
     double sel_start = tui_opt_float(vm, args, n, 5, 0, who, "selStart");
     double sel_end = tui_opt_float(vm, args, n, 6, 0, who, "selEnd");
     if (buckets < 1 || buckets > 100000)
-        RAISE(vm, "ValueError", "%s(): buckets must be in 1..100000", who);
+        RAISE(vm, "ValueError", "%s: buckets must be in 1..100000", who);
     int cnt = count_rows(rows);
     cui_histogram_series *ss = cnt
         ? tm_malloc(sizeof(cui_histogram_series) * (size_t)cnt) : NULL;
@@ -1300,7 +1300,7 @@ static TVal nm_time_histogram(VM *vm, void *self, TVal *args, int n) {
         row_req_str(vm, row, "name", who, "series", pos + 1);
         TVal *cv = row_get(row, "counts");
         if (!cv)
-            RAISE(vm, "TypeError", "%s(): series[%d][\"counts\"] is required", who, pos);
+            RAISE(vm, "TypeError", "%s: series[%d][\"counts\"] is required", who, pos);
         int cn = 0;
         double *d = tui_floats(vm, cv, who, "series.counts", &cn);
         tui_arr_free(d);
@@ -1322,7 +1322,7 @@ static TVal nm_time_histogram(VM *vm, void *self, TVal *args, int n) {
             for (int z = 0; z <= k; z++) { tm_free(names[z]); tm_free(counts[z]); }
             tm_free(names); tm_free(counts); tm_free(ss);
             RAISE(vm, "ValueError",
-                  "%s(): series[%d] counts length (%d) must equal buckets (%lld)",
+                  "%s: series[%d] counts length (%d) must equal buckets (%lld)",
                   who, k, cn, (long long)buckets);
         }
         ss[k].name = names[k];
@@ -1350,7 +1350,7 @@ static TVal nm_time_histogram(VM *vm, void *self, TVal *args, int n) {
  * files=[['path'=>,'lines'=>,'lines_hit'=>,'branches'=>0,'branches_hit'=>0,
  *         'functions'=>0,'functions_hit'=>0]] */
 static TVal nm_coverage(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::coverage()";
+    const char *who = "Tphp\\Tui\\Content::coverage()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "files");
     int cnt = count_rows(rows);
@@ -1402,7 +1402,7 @@ static TVal nm_coverage(VM *vm, void *self, TVal *args, int n) {
  * lines=[str...]、lineCommit=[int...]、commits=[['hash'=>,'author'=>,
  *        'summary'=>,'time'=>0]] */
 static TVal nm_blame(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::blame()";
+    const char *who = "Tphp\\Tui\\Content::blame()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int lc = 0;
     char **lines = tui_strs(vm, &args[1], who, "lines", &lc);
@@ -1411,7 +1411,7 @@ static TVal nm_blame(VM *vm, void *self, TVal *args, int n) {
     if (cc != lc) {
         tui_strs_free(lines, lc);
         tui_arr_free(line_commit);
-        RAISE(vm, "ValueError", "%s(): lineCommit length (%d) must match lines (%d)",
+        RAISE(vm, "ValueError", "%s: lineCommit length (%d) must match lines (%d)",
               who, cc, lc);
     }
     TArr *rows = rows_of(vm, &args[3], who, "commits");
@@ -1468,14 +1468,14 @@ static TVal nm_blame(VM *vm, void *self, TVal *args, int n) {
 /* featureFlags → ['flag'=>,'env'=>,'flags'=>[['on'=>bool[≤8],'rollout'=>int[≤8]]...]]
  * flags 原地被 CUI 修改，回读完整状态交还 PHP */
 static TVal nm_feature_flags(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::featureFlags()";
+    const char *who = "Tphp\\Tui\\Content::featureFlags()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "flags");
     int ec = 0;
     char **envs = tui_strs(vm, &args[2], who, "envs", &ec);
     if (ec < 1 || ec > CUI_FLAG_ENVS) {
         tui_strs_free(envs, ec);
-        RAISE(vm, "ValueError", "%s(): envs length must be in 1..%d", who,
+        RAISE(vm, "ValueError", "%s: envs length must be in 1..%d", who,
               CUI_FLAG_ENVS);
     }
     int cnt = count_rows(rows);
@@ -1566,7 +1566,7 @@ static TVal nm_feature_flags(VM *vm, void *self, TVal *args, int n) {
  *             'params'=>[['name'=>,'in'=>,'type'=>,'required'=>false,
  *                         'description'=>?]]?]] */
 static TVal nm_api_explorer(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::apiExplorer()";
+    const char *who = "Tphp\\Tui\\Content::apiExplorer()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "endpoints");
     int cnt = count_rows(rows);
@@ -1591,14 +1591,14 @@ static TVal nm_api_explorer(VM *vm, void *self, TVal *args, int n) {
         TVal *pv = row_get(row, "params");
         if (pv) {
             if (pv->t != T_ARR)
-                RAISE(vm, "TypeError", "%s(): endpoints[%d][\"params\"] must be "
+                RAISE(vm, "TypeError", "%s: endpoints[%d][\"params\"] must be "
                       "an array", who, pos);
             TArr *pa = (TArr *)pv->u.p;
             for (uint32_t j = 0; j < pa->dused; j++) {
                 TVal pe = pa->data[j];
                 if (pe.t == T_UNDEF) continue;
                 if (pe.t != T_ARR)
-                    RAISE(vm, "TypeError", "%s(): endpoints[%d].params entries "
+                    RAISE(vm, "TypeError", "%s: endpoints[%d].params entries "
                           "must be arrays", who, pos);
                 TArr *pr = (TArr *)pe.u.p;
                 row_req_str(vm, pr, "name", who, "endpoints.params", (int)j + 1);
@@ -1700,7 +1700,7 @@ static TVal nm_api_explorer(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_readout(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::readout()";
+    const char *who = "Tphp\\Tui\\Content::readout()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     const char *value = tui_arg_str(vm, args, n, 1, who);
     cui_readout_ex(tui_need_ui(vm, (TObj *)self, who), label, value, NULL);
@@ -1708,7 +1708,7 @@ static TVal nm_readout(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_dot_display(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::dotDisplay()";
+    const char *who = "Tphp\\Tui\\Content::dotDisplay()";
     const char *text = tui_arg_str(vm, args, n, 0, who);
     cui_dot_display_ex(tui_need_ui(vm, (TObj *)self, who), text, NULL);
     return TV_NULL;

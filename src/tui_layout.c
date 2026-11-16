@@ -36,7 +36,7 @@ static char *dup_s(const char *s) {
 
 static TArr *rows_of(VM *vm, TVal *v, const char *who, const char *pname) {
     if (v->t != T_ARR)
-        RAISE(vm, "TypeError", "%s(): argument %s must be of type array, %s given",
+        RAISE(vm, "TypeError", "%s: argument %s must be of type array, %s given",
               who, pname, tphp_val_type_name(*v));
     return (TArr *)v->u.p;
 }
@@ -45,7 +45,7 @@ static TArr *rows_of(VM *vm, TVal *v, const char *who, const char *pname) {
 static TArr *row_arr(VM *vm, TVal e, const char *who, const char *pname, int pos) {
     if (e.t != T_ARR)
         RAISE(vm, "TypeError",
-              "%s(): array element %d of argument %s must be of type array, %s given",
+              "%s: array element %d of argument %s must be of type array, %s given",
               who, pos, pname, tphp_val_type_name(e));
     return (TArr *)e.u.p;
 }
@@ -55,7 +55,7 @@ static const char *row_req_str(VM *vm, TArr *row, const char *k,
                                const char *who, const char *pname, int pos) {
     TVal *v = row_get(row, k);
     if (!v || v->t != T_STR)
-        RAISE(vm, "TypeError", "%s(): %s[%d][\"%s\"] must be a string",
+        RAISE(vm, "TypeError", "%s: %s[%d][\"%s\"] must be a string",
               who, pname, pos - 1, k);
     return tstr_val((TStr *)v->u.p);
 }
@@ -66,7 +66,7 @@ static const char *row_opt_str(VM *vm, TArr *row, const char *k, const char *who
     TVal *v = row_get(row, k);
     if (!v || v->t == T_NULL) return NULL;
     if (v->t != T_STR)
-        RAISE(vm, "TypeError", "%s(): %s[%d][\"%s\"] must be a string",
+        RAISE(vm, "TypeError", "%s: %s[%d][\"%s\"] must be a string",
               who, pname, pos - 1, k);
     return tstr_val((TStr *)v->u.p);
 }
@@ -76,7 +76,7 @@ static int64_t row_opt_int(VM *vm, TArr *row, const char *k, int64_t def,
     TVal *v = row_get(row, k);
     if (!v || v->t == T_NULL) return def;
     if (v->t != T_INT)
-        RAISE(vm, "TypeError", "%s(): %s[%d][\"%s\"] must be an int",
+        RAISE(vm, "TypeError", "%s: %s[%d][\"%s\"] must be an int",
               who, pname, pos - 1, k);
     return v->u.i;
 }
@@ -86,7 +86,7 @@ static bool row_opt_bool(VM *vm, TArr *row, const char *k, bool def,
     TVal *v = row_get(row, k);
     if (!v || v->t == T_NULL) return def;
     if (v->t != T_TRUE && v->t != T_FALSE)
-        RAISE(vm, "TypeError", "%s(): %s[%d][\"%s\"] must be a bool",
+        RAISE(vm, "TypeError", "%s: %s[%d][\"%s\"] must be a bool",
               who, pname, pos - 1, k);
     return v->t == T_TRUE;
 }
@@ -97,7 +97,7 @@ static double row_opt_float(VM *vm, TArr *row, const char *k, double def,
     if (!v) return def;
     if (v->t == T_FLOAT) return v->u.d;
     if (v->t == T_INT) return (double)v->u.i;
-    RAISE(vm, "TypeError", "%s(): %s[%d][\"%s\"] must be numeric",
+    RAISE(vm, "TypeError", "%s: %s[%d][\"%s\"] must be numeric",
           who, pname, pos - 1, k);
 }
 
@@ -165,7 +165,7 @@ void tui_layout_state_free(void *p) {
 /* ---- 容器 ---- */
 
 static TVal nm_box_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::boxBegin()";
+    const char *who = "Tphp\\Tui\\Layout::boxBegin()";
     int64_t pad = n >= 1 ? tui_opt_int(vm, args, n, 0, 0, who, "pad") : 0;
     int64_t gap = n >= 2 ? tui_opt_int(vm, args, n, 1, 0, who, "gap") : 0;
     cui_box b;
@@ -180,7 +180,7 @@ static TVal nm_box_begin(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_scroll_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::scrollBegin()";
+    const char *who = "Tphp\\Tui\\Layout::scrollBegin()";
     const char *id = tui_opt_str(vm, args, n, 0, "", who, "id");
     bool horiz = tui_opt_bool(vm, args, n, 1, false, who, "horizontal");
     cui_scroll_opts o;
@@ -203,7 +203,7 @@ static TVal nm_scroll_end(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_scroll_to(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::scrollTo()";
+    const char *who = "Tphp\\Tui\\Layout::scrollTo()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     double y = tui_arg_float(vm, args, n, 1, who, "y");
     cui_scroll_to(tui_need_ui(vm, (TObj *)self, who), id, (float)y);
@@ -212,7 +212,7 @@ static TVal nm_scroll_to(VM *vm, void *self, TVal *args, int n) {
 
 /* split：ratio 借阅到 splitEnd —— 静态暂存（每帧一层，同类 scope 至多一个） */
 static TVal nm_split_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::splitBegin()";
+    const char *who = "Tphp\\Tui\\Layout::splitBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     double ratio = tui_arg_float(vm, args, n, 1, who, "ratio");
     GSTATE->split_ratio = (float)ratio;
@@ -224,7 +224,7 @@ static TVal nm_split_begin(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_split_next(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    cui_split_next(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\App::splitNext()"));
+    cui_split_next(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\Layout::splitNext()"));
     return TV_NULL;
 }
 
@@ -239,7 +239,7 @@ static TVal nm_split_end(VM *vm, void *self, TVal *args, int n) {
 /* ---- 导航 ---- */
 
 static TVal nm_tabs(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::tabs()";
+    const char *who = "Tphp\\Tui\\Layout::tabs()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int ic = 0;
     char **items = tui_strs(vm, &args[1], who, "items", &ic);
@@ -251,21 +251,21 @@ static TVal nm_tabs(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_nav_item(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::navItem()";
+    const char *who = "Tphp\\Tui\\Layout::navItem()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     bool clicked = cui_nav_item_ex(tui_need_ui(vm, (TObj *)self, who), label, NULL);
     return open_out(clicked);
 }
 
 static TVal nm_nav_section(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::navSection()";
+    const char *who = "Tphp\\Tui\\Layout::navSection()";
     const char *title = tui_arg_str(vm, args, n, 0, who);
     cui_nav_section(tui_need_ui(vm, (TObj *)self, who), title);
     return TV_NULL;
 }
 
 static TVal nm_breadcrumb(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::breadcrumb()";
+    const char *who = "Tphp\\Tui\\Layout::breadcrumb()";
     int ic = 0;
     char **items = tui_strs(vm, &args[0], who, "items", &ic);
     int picked = cui_breadcrumb(tui_need_ui(vm, (TObj *)self, who),
@@ -275,18 +275,18 @@ static TVal nm_breadcrumb(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_pagination(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::pagination()";
+    const char *who = "Tphp\\Tui\\Layout::pagination()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int page = (int)tui_arg_int(vm, args, n, 1, who, "page");
     int64_t cnt = tui_arg_int(vm, args, n, 2, who, "pageCount");
     if (cnt < 1)
-        RAISE(vm, "ValueError", "%s(): pageCount must be >= 1", who);
+        RAISE(vm, "ValueError", "%s: pageCount must be >= 1", who);
     cui_pagination(tui_need_ui(vm, (TObj *)self, who), id, &page, (int)cnt);
     return TV_INT(page);   /* 0 起新页码 */
 }
 
 static TVal nm_stepper(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::stepper()";
+    const char *who = "Tphp\\Tui\\Layout::stepper()";
     int sc = 0;
     char **steps = tui_strs(vm, &args[0], who, "steps", &sc);
     int64_t cur = tui_arg_int(vm, args, n, 1, who, "current");
@@ -298,7 +298,7 @@ static TVal nm_stepper(VM *vm, void *self, TVal *args, int n) {
 
 /* pathBar：返回 ['clicked'=>int,'submitted'=>string|null,'editing'=>bool] */
 static TVal nm_path_bar(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::pathBar()";
+    const char *who = "Tphp\\Tui\\Layout::pathBar()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int sc = 0;
     char **segs = tui_strs(vm, &args[1], who, "segments", &sc);
@@ -316,7 +316,7 @@ static TVal nm_path_bar(VM *vm, void *self, TVal *args, int n) {
 
 /* pathBarMenu：返回段索引（-1 = 未打开） */
 static TVal nm_path_bar_menu(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::pathBarMenu()";
+    const char *who = "Tphp\\Tui\\Layout::pathBarMenu()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int seg = -1;
     cui_path_bar_menu_begin(tui_need_ui(vm, (TObj *)self, who), id, &seg);
@@ -327,13 +327,13 @@ static TVal nm_path_bar_menu_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_path_bar_menu_end(tui_need_ui(vm, (TObj *)self,
-                                      "Tphp\\Tui\\App::pathBarMenuEnd()"));
+                                      "Tphp\\Tui\\Layout::pathBarMenuEnd()"));
     return TV_NULL;
 }
 
 /* toc：items=[['title'=>,'anchor'=>,'level'=>0..4]] 单次调用内消费 */
 static TVal nm_toc(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::toc()";
+    const char *who = "Tphp\\Tui\\Layout::toc()";
     const char *scroll_id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "items");
     int cnt = 0;
@@ -362,7 +362,7 @@ static TVal nm_toc(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_toc_anchor(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::tocAnchor()";
+    const char *who = "Tphp\\Tui\\Layout::tocAnchor()";
     const char *anchor = tui_arg_str(vm, args, n, 0, who);
     cui_toc_anchor(tui_need_ui(vm, (TObj *)self, who), anchor);
     return TV_NULL;
@@ -371,7 +371,7 @@ static TVal nm_toc_anchor(VM *vm, void *self, TVal *args, int n) {
 /* ---- 覆盖层 ---- */
 
 static TVal nm_popover_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::popoverBegin()";
+    const char *who = "Tphp\\Tui\\Layout::popoverBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     GSTATE->popover_on = cui_popover_begin(tui_need_ui(vm, (TObj *)self, who), id, NULL);
     return open_out(GSTATE->popover_on);
@@ -381,7 +381,7 @@ static TVal nm_popover_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     if (GSTATE->popover_on) {
-        cui_popover_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\App::popoverEnd()"));
+        cui_popover_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\Layout::popoverEnd()"));
         GSTATE->popover_on = false;
     }
     return TV_NULL;
@@ -389,7 +389,7 @@ static TVal nm_popover_end(VM *vm, void *self, TVal *args, int n) {
 
 #define POPOVER_OP(name, fn, php)                                        \
 static TVal name(VM *vm, void *self, TVal *args, int n) {                 \
-    const char *who = "Tphp\\Tui\\App::" php "()";                        \
+    const char *who = "Tphp\\Tui\\Layout::" php "()";                        \
     const char *id = tui_arg_str(vm, args, n, 0, who);                    \
     cui_##fn(tui_need_ui(vm, (TObj *)self, who), id);                     \
     return TV_NULL;                                                       \
@@ -400,13 +400,13 @@ POPOVER_OP(nm_popover_toggle, popover_toggle, "popoverToggle")
 #undef POPOVER_OP
 
 static TVal nm_popover_is_open(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::popoverIsOpen()";
+    const char *who = "Tphp\\Tui\\Layout::popoverIsOpen()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     return open_out(cui_popover_is_open(tui_need_ui(vm, (TObj *)self, who), id));
 }
 
 static TVal nm_menu_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::menuBegin()";
+    const char *who = "Tphp\\Tui\\Layout::menuBegin()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     GSTATE->menu_on = cui_menu_begin(tui_need_ui(vm, (TObj *)self, who), label, NULL);
     return open_out(GSTATE->menu_on);
@@ -416,14 +416,14 @@ static TVal nm_menu_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     if (GSTATE->menu_on) {
-        cui_menu_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\App::menuEnd()"));
+        cui_menu_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\Layout::menuEnd()"));
         GSTATE->menu_on = false;
     }
     return TV_NULL;
 }
 
 static TVal nm_context_menu_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::contextMenuBegin()";
+    const char *who = "Tphp\\Tui\\Layout::contextMenuBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     GSTATE->ctxmenu_on = cui_context_menu_begin(tui_need_ui(vm, (TObj *)self, who), id);
     return open_out(GSTATE->ctxmenu_on);
@@ -434,14 +434,14 @@ static TVal nm_context_menu_end(VM *vm, void *self, TVal *args, int n) {
     (void)n;
     if (GSTATE->ctxmenu_on) {
         cui_context_menu_end(tui_need_ui(vm, (TObj *)self,
-                                         "Tphp\\Tui\\App::contextMenuEnd()"));
+                                         "Tphp\\Tui\\Layout::contextMenuEnd()"));
         GSTATE->ctxmenu_on = false;
     }
     return TV_NULL;
 }
 
 static TVal nm_menu_item(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::menuItem()";
+    const char *who = "Tphp\\Tui\\Layout::menuItem()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     return open_out(cui_menu_item_ex(tui_need_ui(vm, (TObj *)self, who), label, NULL));
 }
@@ -450,12 +450,12 @@ static TVal nm_menu_separator(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_menu_separator(tui_need_ui(vm, (TObj *)self,
-                                   "Tphp\\Tui\\App::menuSeparator()"));
+                                   "Tphp\\Tui\\Layout::menuSeparator()"));
     return TV_NULL;
 }
 
 static TVal nm_menu_label(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::menuLabel()";
+    const char *who = "Tphp\\Tui\\Layout::menuLabel()";
     const char *text = tui_arg_str(vm, args, n, 0, who);
     cui_menu_label(tui_need_ui(vm, (TObj *)self, who), text);
     return TV_NULL;
@@ -463,7 +463,7 @@ static TVal nm_menu_label(VM *vm, void *self, TVal *args, int n) {
 
 /* dialog/sheet：返回 C 的渲染判定（SCOPE_IF 条件），End 按该标记守卫 */
 static TVal nm_dialog_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::dialogBegin()";
+    const char *who = "Tphp\\Tui\\Layout::dialogBegin()";
     const char *title = tui_arg_str(vm, args, n, 0, who);
     bool open = open_in(vm, args, n, 1, who, "open");
     GSTATE->dialog_on = cui_dialog_begin(tui_need_ui(vm, (TObj *)self, who),
@@ -475,7 +475,7 @@ static TVal nm_dialog_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     if (GSTATE->dialog_on) {
-        cui_dialog_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\App::dialogEnd()"));
+        cui_dialog_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\Layout::dialogEnd()"));
         GSTATE->dialog_on = false;
     }
     return TV_NULL;
@@ -485,7 +485,7 @@ static TVal nm_dialog_footer_begin(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_dialog_footer_begin(tui_need_ui(vm, (TObj *)self,
-                                        "Tphp\\Tui\\App::dialogFooterBegin()"));
+                                        "Tphp\\Tui\\Layout::dialogFooterBegin()"));
     return TV_NULL;
 }
 
@@ -493,12 +493,12 @@ static TVal nm_dialog_footer_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_dialog_footer_end(tui_need_ui(vm, (TObj *)self,
-                                      "Tphp\\Tui\\App::dialogFooterEnd()"));
+                                      "Tphp\\Tui\\Layout::dialogFooterEnd()"));
     return TV_NULL;
 }
 
 static TVal nm_sheet_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::sheetBegin()";
+    const char *who = "Tphp\\Tui\\Layout::sheetBegin()";
     const char *title = tui_arg_str(vm, args, n, 0, who);
     bool open = open_in(vm, args, n, 1, who, "open");
     GSTATE->sheet_on = cui_sheet_begin(tui_need_ui(vm, (TObj *)self, who),
@@ -510,41 +510,41 @@ static TVal nm_sheet_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     if (GSTATE->sheet_on) {
-        cui_sheet_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\App::sheetEnd()"));
+        cui_sheet_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\Layout::sheetEnd()"));
         GSTATE->sheet_on = false;
     }
     return TV_NULL;
 }
 
 static TVal nm_toast(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::toast()";
+    const char *who = "Tphp\\Tui\\Layout::toast()";
     const char *title = tui_arg_str(vm, args, n, 0, who);
     int h = cui_toast_ex(tui_need_ui(vm, (TObj *)self, who), title, NULL);
     return TV_INT(h);
 }
 
 static TVal nm_toast_action_clicked(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::toastActionClicked()";
+    const char *who = "Tphp\\Tui\\Layout::toastActionClicked()";
     int64_t h = tui_arg_int(vm, args, n, 0, who, "handle");
     return open_out(cui_toast_action_clicked(tui_need_ui(vm, (TObj *)self, who),
                                              (int)h));
 }
 
 static TVal nm_toast_dismiss(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::toastDismiss()";
+    const char *who = "Tphp\\Tui\\Layout::toastDismiss()";
     int64_t h = tui_arg_int(vm, args, n, 0, who, "handle");
     cui_toast_dismiss(tui_need_ui(vm, (TObj *)self, who), (int)h);
     return TV_NULL;
 }
 
 static TVal nm_alert(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::alert()";
+    const char *who = "Tphp\\Tui\\Layout::alert()";
     const char *title = tui_arg_str(vm, args, n, 0, who);
     return open_out(cui_alert_ex(tui_need_ui(vm, (TObj *)self, who), title, NULL));
 }
 
 static TVal nm_banner(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::banner()";
+    const char *who = "Tphp\\Tui\\Layout::banner()";
     const char *text = tui_arg_str(vm, args, n, 0, who);
     bool open = open_in(vm, args, n, 1, who, "open");
     cui_banner_ex(tui_need_ui(vm, (TObj *)self, who), text, &open, NULL);
@@ -552,7 +552,7 @@ static TVal nm_banner(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_hover_card_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::hoverCardBegin()";
+    const char *who = "Tphp\\Tui\\Layout::hoverCardBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     GSTATE->hover_on = cui_hover_card_begin(tui_need_ui(vm, (TObj *)self, who), id, NULL);
     return open_out(GSTATE->hover_on);
@@ -563,14 +563,14 @@ static TVal nm_hover_card_end(VM *vm, void *self, TVal *args, int n) {
     (void)n;
     if (GSTATE->hover_on) {
         cui_hover_card_end(tui_need_ui(vm, (TObj *)self,
-                                       "Tphp\\Tui\\App::hoverCardEnd()"));
+                                       "Tphp\\Tui\\Layout::hoverCardEnd()"));
         GSTATE->hover_on = false;
     }
     return TV_NULL;
 }
 
 static TVal nm_user_menu_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::userMenuBegin()";
+    const char *who = "Tphp\\Tui\\Layout::userMenuBegin()";
     const char *name = tui_arg_str(vm, args, n, 0, who);
     GSTATE->usermenu_on = cui_user_menu_begin(tui_need_ui(vm, (TObj *)self, who), name, NULL);
     return open_out(GSTATE->usermenu_on);
@@ -581,7 +581,7 @@ static TVal nm_user_menu_end(VM *vm, void *self, TVal *args, int n) {
     (void)n;
     if (GSTATE->usermenu_on) {
         cui_user_menu_end(tui_need_ui(vm, (TObj *)self,
-                                      "Tphp\\Tui\\App::userMenuEnd()"));
+                                      "Tphp\\Tui\\Layout::userMenuEnd()"));
         GSTATE->usermenu_on = false;
     }
     return TV_NULL;
@@ -589,7 +589,7 @@ static TVal nm_user_menu_end(VM *vm, void *self, TVal *args, int n) {
 
 /* speedDial：actions=[['icon'=>,'label'=>]] 单次消费，返回选中索引（-1 无） */
 static TVal nm_speed_dial(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::speedDial()";
+    const char *who = "Tphp\\Tui\\Layout::speedDial()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "actions");
     int cnt = 0;
@@ -617,7 +617,7 @@ static TVal nm_speed_dial(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_spotlight_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::spotlightBegin()";
+    const char *who = "Tphp\\Tui\\Layout::spotlightBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     cui_spotlight_begin(tui_need_ui(vm, (TObj *)self, who), id, NULL);
     return TV_NULL;
@@ -627,14 +627,14 @@ static TVal nm_spotlight_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_spotlight_end(tui_need_ui(vm, (TObj *)self,
-                                  "Tphp\\Tui\\App::spotlightEnd()"));
+                                  "Tphp\\Tui\\Layout::spotlightEnd()"));
     return TV_NULL;
 }
 
 /* ---- 列表/树 ---- */
 
 static TVal nm_accordion_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::accordionBegin()";
+    const char *who = "Tphp\\Tui\\Layout::accordionBegin()";
     const char *title = tui_arg_str(vm, args, n, 0, who);
     bool open = open_in(vm, args, n, 1, who, "open");
     GSTATE->accordion_on = cui_accordion_begin(tui_need_ui(vm, (TObj *)self, who),
@@ -647,14 +647,14 @@ static TVal nm_accordion_end(VM *vm, void *self, TVal *args, int n) {
     (void)n;
     if (GSTATE->accordion_on) {
         cui_accordion_end(tui_need_ui(vm, (TObj *)self,
-                                      "Tphp\\Tui\\App::accordionEnd()"));
+                                      "Tphp\\Tui\\Layout::accordionEnd()"));
         GSTATE->accordion_on = false;
     }
     return TV_NULL;
 }
 
 static TVal nm_tree_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::treeBegin()";
+    const char *who = "Tphp\\Tui\\Layout::treeBegin()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     bool open = open_in(vm, args, n, 1, who, "open");
     GSTATE->tree_on = cui_tree_begin(tui_need_ui(vm, (TObj *)self, who),
@@ -666,7 +666,7 @@ static TVal nm_tree_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     if (GSTATE->tree_on) {
-        cui_tree_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\App::treeEnd()"));
+        cui_tree_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\Layout::treeEnd()"));
         GSTATE->tree_on = false;
     }
     return TV_NULL;
@@ -676,17 +676,17 @@ static TVal nm_tree_clicked(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     return open_out(cui_tree_clicked(tui_need_ui(vm, (TObj *)self,
-                                                 "Tphp\\Tui\\App::treeClicked()")));
+                                                 "Tphp\\Tui\\Layout::treeClicked()")));
 }
 
 static TVal nm_list_item(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::listItem()";
+    const char *who = "Tphp\\Tui\\Layout::listItem()";
     const char *title = tui_arg_str(vm, args, n, 0, who);
     return open_out(cui_list_item_ex(tui_need_ui(vm, (TObj *)self, who), title, NULL));
 }
 
 static TVal nm_virtual_list(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::virtualList()";
+    const char *who = "Tphp\\Tui\\Layout::virtualList()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int64_t cnt = tui_arg_int(vm, args, n, 1, who, "count");
     double row_h = tui_arg_float(vm, args, n, 2, who, "rowHeight");
@@ -707,7 +707,7 @@ static TVal nm_virtual_list_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_virtual_list_end(tui_need_ui(vm, (TObj *)self,
-                                     "Tphp\\Tui\\App::virtualListEnd()"));
+                                     "Tphp\\Tui\\Layout::virtualListEnd()"));
     return TV_NULL;
 }
 
@@ -726,7 +726,7 @@ static void swipe_fill(VM *vm, TArr *rows, const char *pname, const char *who,
         row_req_str(vm, row, "label", who, pname, pos + 1);
         int64_t tone = row_opt_int(vm, row, "tone", 0, who, pname, pos + 1);
         if (tone < 0 || tone > 8)
-            RAISE(vm, "ValueError", "%s(): %s[%d][\"tone\"] must be in 0..8",
+            RAISE(vm, "ValueError", "%s: %s[%d][\"tone\"] must be in 0..8",
                   who, pname, pos);
         pos++;
     }
@@ -759,7 +759,7 @@ static void swipe_fill(VM *vm, TArr *rows, const char *pname, const char *who,
 }
 
 static TVal nm_swipe_item_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::swipeItemBegin()";
+    const char *who = "Tphp\\Tui\\Layout::swipeItemBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     /* 清上一轮借阅 */
     tm_free(GSTATE->swipe_l);
@@ -771,7 +771,7 @@ static TVal nm_swipe_item_begin(VM *vm, void *self, TVal *args, int n) {
     TArr *left = rows_of(vm, &args[1], who, "left");
     TArr *right = n >= 3 && args[2].t == T_ARR ? (TArr *)args[2].u.p : NULL;
     if (n >= 3 && args[2].t != T_ARR && args[2].t != T_NULL)
-        RAISE(vm, "TypeError", "%s(): argument right must be of type array, %s given",
+        RAISE(vm, "TypeError", "%s: argument right must be of type array, %s given",
               who, tphp_val_type_name(args[2]));
     swipe_fill(vm, left, "left", who, &GSTATE->swipe_l, &GSTATE->swipe_ln, GSTATE);
     if (right) swipe_fill(vm, right, "right", who, &GSTATE->swipe_r, &GSTATE->swipe_rn, GSTATE);
@@ -783,7 +783,7 @@ static TVal nm_swipe_item_begin(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_swipe_item_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    const char *who = "Tphp\\Tui\\App::swipeItemEnd()";
+    const char *who = "Tphp\\Tui\\Layout::swipeItemEnd()";
     int picked = cui_swipe_item_end(tui_need_ui(vm, (TObj *)self, who));
     /* end 后 CUI 不再借阅：立即回收 */
     tm_free(GSTATE->swipe_l);
@@ -797,7 +797,7 @@ static TVal nm_swipe_item_end(VM *vm, void *self, TVal *args, int n) {
 
 /* reorder：order 借阅 begin→end（静态拷贝） */
 static TVal nm_reorder_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::reorderBegin()";
+    const char *who = "Tphp\\Tui\\Layout::reorderBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int cnt = 0;
     int64_t *vals = tui_ints(vm, &args[1], who, "order", &cnt);
@@ -817,7 +817,7 @@ static TVal nm_reorder_begin(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_reorder_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    const char *who = "Tphp\\Tui\\App::reorderEnd()";
+    const char *who = "Tphp\\Tui\\Layout::reorderEnd()";
     cui_reorder_end(tui_need_ui(vm, (TObj *)self, who));
     TArr *a = tarr_new();
     for (int i = 0; i < GSTATE->reorder_n; i++) tarr_append(a, TV_INT(GSTATE->reorder[i]));
@@ -848,7 +848,7 @@ static void grid_cols_fill(VM *vm, TArr *rows, const char *pname, const char *wh
         double w = row_opt_float(vm, row, "width", 150, who, pname, k + 1);
         int64_t align = row_opt_int(vm, row, "align", 0, who, pname, k + 1);
         if (align < 0 || align > 4)
-            RAISE(vm, "ValueError", "%s(): %s[%d][\"align\"] must be in 0..4",
+            RAISE(vm, "ValueError", "%s: %s[%d][\"align\"] must be in 0..4",
                   who, pname, k);
         cols[k].title = title;
         cols[k].width = (float)w;
@@ -871,7 +871,7 @@ static void grid_cols_free(TuiLayoutState *S) {
 }
 
 static TVal nm_table_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::tableBegin()";
+    const char *who = "Tphp\\Tui\\Layout::tableBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "columns");
     /* 释放上一轮 */
@@ -907,7 +907,7 @@ static TVal nm_table_begin(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_table_row(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::tableRow()";
+    const char *who = "Tphp\\Tui\\Layout::tableRow()";
     bool selected = tui_opt_bool(vm, args, n, 0, false, who, "selected");
     return open_out(cui_table_row(tui_need_ui(vm, (TObj *)self, who), selected));
 }
@@ -915,12 +915,12 @@ static TVal nm_table_row(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_table_cell(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    cui_table_cell(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\App::tableCell()"));
+    cui_table_cell(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\Layout::tableCell()"));
     return TV_NULL;
 }
 
 static TVal nm_table_cell_text(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::tableCellText()";
+    const char *who = "Tphp\\Tui\\Layout::tableCellText()";
     const char *s = tui_arg_str(vm, args, n, 0, who);
     cui_table_cell_text(tui_need_ui(vm, (TObj *)self, who), s);
     return TV_NULL;
@@ -930,7 +930,7 @@ static TVal nm_table_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     if (GSTATE->table_on) {
-        const char *who = "Tphp\\Tui\\App::tableEnd()";
+        const char *who = "Tphp\\Tui\\Layout::tableEnd()";
         cui_table_end(tui_need_ui(vm, (TObj *)self, who));
         GSTATE->table_on = false;
     }
@@ -944,7 +944,7 @@ static TVal nm_table_end(VM *vm, void *self, TVal *args, int n) {
 
 /* dataGridBegin：返回 false（本帧不可建）或 ['first'=>,'last'=>] */
 static TVal nm_data_grid_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::dataGridBegin()";
+    const char *who = "Tphp\\Tui\\Layout::dataGridBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "columns");
     int64_t row_count = tui_arg_int(vm, args, n, 2, who, "rowCount");
@@ -962,7 +962,7 @@ static TVal nm_data_grid_begin(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_data_grid_row(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::dataGridRow()";
+    const char *who = "Tphp\\Tui\\Layout::dataGridRow()";
     int64_t row = tui_arg_int(vm, args, n, 0, who, "row");
     return open_out(cui_data_grid_row(tui_need_ui(vm, (TObj *)self, who), (int)row));
 }
@@ -971,12 +971,12 @@ static TVal nm_data_grid_cell(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_data_grid_cell(tui_need_ui(vm, (TObj *)self,
-                                   "Tphp\\Tui\\App::dataGridCell()"));
+                                   "Tphp\\Tui\\Layout::dataGridCell()"));
     return TV_NULL;
 }
 
 static TVal nm_data_grid_cell_text(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::dataGridCellText()";
+    const char *who = "Tphp\\Tui\\Layout::dataGridCellText()";
     const char *s = tui_arg_str(vm, args, n, 0, who);
     cui_data_grid_cell_text(tui_need_ui(vm, (TObj *)self, who), s);
     return TV_NULL;
@@ -984,13 +984,13 @@ static TVal nm_data_grid_cell_text(VM *vm, void *self, TVal *args, int n) {
 
 /* 可编辑单元格：buffer 往返（值由 PHP 持有），返回编辑后的字符串 */
 static TVal nm_data_grid_cell_edit(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::dataGridCellEdit()";
+    const char *who = "Tphp\\Tui\\Layout::dataGridCellEdit()";
     const char *val = tui_arg_str(vm, args, n, 0, who);
     int64_t cap = tui_opt_int(vm, args, n, 1, 256, who, "cap");
     if (cap < 2)
-        RAISE(vm, "ValueError", "%s(): cap must be >= 2", who);
+        RAISE(vm, "ValueError", "%s: cap must be >= 2", who);
     if ((int64_t)strlen(val) + 1 > cap)
-        RAISE(vm, "ValueError", "%s(): value is longer than cap (%d)", who, (int)cap);
+        RAISE(vm, "ValueError", "%s: value is longer than cap (%d)", who, (int)cap);
     char *buf = tm_malloc((size_t)cap);
     memcpy(buf, val, strlen(val) + 1);
     cui_data_grid_cell_edit(tui_need_ui(vm, (TObj *)self, who), buf, (size_t)cap);
@@ -1003,7 +1003,7 @@ static TVal nm_data_grid_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     if (GSTATE->datagrid_on) {
-        const char *who = "Tphp\\Tui\\App::dataGridEnd()";
+        const char *who = "Tphp\\Tui\\Layout::dataGridEnd()";
         cui_data_grid_end(tui_need_ui(vm, (TObj *)self, who));
         GSTATE->datagrid_on = false;
     }
@@ -1013,7 +1013,7 @@ static TVal nm_data_grid_end(VM *vm, void *self, TVal *args, int n) {
 
 /* treeCell：open 传入当前值，返回是否翻转后的新值 */
 static TVal nm_tree_cell(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::treeCell()";
+    const char *who = "Tphp\\Tui\\Layout::treeCell()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     int64_t depth = tui_arg_int(vm, args, n, 1, who, "depth");
     bool has_children = tui_arg_bool(vm, args, n, 2, who, "hasChildren");
@@ -1026,7 +1026,7 @@ static TVal nm_tree_cell(VM *vm, void *self, TVal *args, int n) {
 
 /* treeTableBegin：nodes=[['parent'=>,'first_child'=>,'next_sibling'=>,'flags'=>]] */
 static TVal nm_tree_table_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::treeTableBegin()";
+    const char *who = "Tphp\\Tui\\Layout::treeTableBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *cols_rows = rows_of(vm, &args[1], who, "columns");
     TArr *node_rows = rows_of(vm, &args[2], who, "nodes");
@@ -1062,12 +1062,12 @@ static TVal nm_tree_table_row(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     int node = cui_tree_table_row(tui_need_ui(vm, (TObj *)self,
-                                              "Tphp\\Tui\\App::treeTableRow()"));
+                                              "Tphp\\Tui\\Layout::treeTableRow()"));
     return TV_INT(node);   /* -1 = 结束 */
 }
 
 static TVal nm_tree_table_name(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::treeTableName()";
+    const char *who = "Tphp\\Tui\\Layout::treeTableName()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     const char *icon = tui_opt_str(vm, args, n, 1, "", who, "icon");
     cui_tree_table_name(tui_need_ui(vm, (TObj *)self, who), label,
@@ -1079,14 +1079,14 @@ static TVal nm_tree_table_depth(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     return TV_INT(cui_tree_table_depth(tui_need_ui(vm, (TObj *)self,
-                                                   "Tphp\\Tui\\App::treeTableDepth()")));
+                                                   "Tphp\\Tui\\Layout::treeTableDepth()")));
 }
 
 /* treeTableEnd：返回事件关联数组 activated/expanded/collapsed/load/sort_changed */
 static TVal nm_tree_table_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    const char *who = "Tphp\\Tui\\App::treeTableEnd()";
+    const char *who = "Tphp\\Tui\\Layout::treeTableEnd()";
     cui_tree_table_events ev = cui_tree_table_end(tui_need_ui(vm, (TObj *)self, who));
     TArr *a = tarr_new();
     tarr_set(a, TV_STR(tstr_new("activated", 9)), TV_INT(ev.activated));
@@ -1109,7 +1109,7 @@ static TVal nm_tree_table_end(VM *vm, void *self, TVal *args, int n) {
 /* filterBar：fields=[['name'=>,'icon'=>,'options'=>[...]]]，
  * selected=int[] 掩码往返、search 字符串往返 → ['changed'=>,'selected'=>,'search'=>] */
 static TVal nm_filter_bar(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::filterBar()";
+    const char *who = "Tphp\\Tui\\Layout::filterBar()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "fields");
     int fcnt = 0;
@@ -1120,7 +1120,7 @@ static TVal nm_filter_bar(VM *vm, void *self, TVal *args, int n) {
     int64_t *masks_in = tui_ints(vm, &args[2], who, "selected", &mcnt);
     if (mcnt != fcnt) {
         tui_arr_free(masks_in);
-        RAISE(vm, "ValueError", "%s(): selected length (%d) must match fields (%d)",
+        RAISE(vm, "ValueError", "%s: selected length (%d) must match fields (%d)",
               who, mcnt, fcnt);
     }
     uint32_t *masks = fcnt ? tm_malloc(sizeof(uint32_t) * (size_t)fcnt) : NULL;
@@ -1167,7 +1167,7 @@ static TVal nm_filter_bar(VM *vm, void *self, TVal *args, int n) {
                     tm_free(optlists); tm_free(optns);
                     tm_free(fields); tm_free(masks);
                     RAISE(vm, "TypeError",
-                          "%s(): fields[%d][\"options\"] elements must be strings",
+                          "%s: fields[%d][\"options\"] elements must be strings",
                           who, k);
                 }
                 char *os = dup_s(tstr_val((TStr *)oe.u.p));
@@ -1204,7 +1204,7 @@ static TVal nm_filter_bar(VM *vm, void *self, TVal *args, int n) {
 /* ---- 工具条/状态栏/菜单栏 ---- */
 
 static TVal nm_toolbar_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::toolbarBegin()";
+    const char *who = "Tphp\\Tui\\Layout::toolbarBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     cui_toolbar_begin(tui_need_ui(vm, (TObj *)self, who), id, NULL);
     return TV_NULL;
@@ -1213,12 +1213,12 @@ static TVal nm_toolbar_begin(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_toolbar_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    cui_toolbar_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\App::toolbarEnd()"));
+    cui_toolbar_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\Layout::toolbarEnd()"));
     return TV_NULL;
 }
 
 static TVal nm_toolbar_button(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::toolbarButton()";
+    const char *who = "Tphp\\Tui\\Layout::toolbarButton()";
     const char *icon = tui_arg_str(vm, args, n, 0, who);
     return open_out(cui_toolbar_button_ex(tui_need_ui(vm, (TObj *)self, who), icon, NULL));
 }
@@ -1227,7 +1227,7 @@ static TVal nm_toolbar_separator(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_toolbar_separator(tui_need_ui(vm, (TObj *)self,
-                                      "Tphp\\Tui\\App::toolbarSeparator()"));
+                                      "Tphp\\Tui\\Layout::toolbarSeparator()"));
     return TV_NULL;
 }
 
@@ -1235,12 +1235,12 @@ static TVal nm_toolbar_spacer(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_toolbar_spacer(tui_need_ui(vm, (TObj *)self,
-                                   "Tphp\\Tui\\App::toolbarSpacer()"));
+                                   "Tphp\\Tui\\Layout::toolbarSpacer()"));
     return TV_NULL;
 }
 
 static TVal nm_status_bar_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::statusBarBegin()";
+    const char *who = "Tphp\\Tui\\Layout::statusBarBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     cui_status_bar_begin(tui_need_ui(vm, (TObj *)self, who), id, NULL);
     return TV_NULL;
@@ -1250,7 +1250,7 @@ static TVal nm_status_bar_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_status_bar_end(tui_need_ui(vm, (TObj *)self,
-                                   "Tphp\\Tui\\App::statusBarEnd()"));
+                                   "Tphp\\Tui\\Layout::statusBarEnd()"));
     return TV_NULL;
 }
 
@@ -1258,33 +1258,33 @@ static TVal nm_status_bar_spacer(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_status_bar_spacer(tui_need_ui(vm, (TObj *)self,
-                                      "Tphp\\Tui\\App::statusBarSpacer()"));
+                                      "Tphp\\Tui\\Layout::statusBarSpacer()"));
     return TV_NULL;
 }
 
 static TVal nm_status_bar_text(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::statusBarText()";
+    const char *who = "Tphp\\Tui\\Layout::statusBarText()";
     const char *s = tui_arg_str(vm, args, n, 0, who);
     cui_status_bar_text_ex(tui_need_ui(vm, (TObj *)self, who), s, NULL);
     return TV_NULL;
 }
 
 static TVal nm_status_bar_item(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::statusBarItem()";
+    const char *who = "Tphp\\Tui\\Layout::statusBarItem()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     return open_out(cui_status_bar_item_ex(tui_need_ui(vm, (TObj *)self, who),
                                            label, NULL));
 }
 
 static TVal nm_status_bar_progress(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::statusBarProgress()";
+    const char *who = "Tphp\\Tui\\Layout::statusBarProgress()";
     double v = tui_arg_float(vm, args, n, 0, who, "value");
     cui_status_bar_progress_ex(tui_need_ui(vm, (TObj *)self, who), (float)v, NULL);
     return TV_NULL;
 }
 
 static TVal nm_menu_bar_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::menuBarBegin()";
+    const char *who = "Tphp\\Tui\\Layout::menuBarBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     cui_menu_bar_begin(tui_need_ui(vm, (TObj *)self, who), id, NULL);
     return TV_NULL;
@@ -1294,12 +1294,12 @@ static TVal nm_menu_bar_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_menu_bar_end(tui_need_ui(vm, (TObj *)self,
-                                 "Tphp\\Tui\\App::menuBarEnd()"));
+                                 "Tphp\\Tui\\Layout::menuBarEnd()"));
     return TV_NULL;
 }
 
 static TVal nm_menu_bar_menu_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::menuBarMenuBegin()";
+    const char *who = "Tphp\\Tui\\Layout::menuBarMenuBegin()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     return open_out(cui_menu_bar_menu_begin(tui_need_ui(vm, (TObj *)self, who),
                                             label, NULL));
@@ -1309,14 +1309,14 @@ static TVal nm_menu_bar_menu_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_menu_bar_menu_end(tui_need_ui(vm, (TObj *)self,
-                                      "Tphp\\Tui\\App::menuBarMenuEnd()"));
+                                      "Tphp\\Tui\\Layout::menuBarMenuEnd()"));
     return TV_NULL;
 }
 
 /* ---- 停靠 ---- */
 
 static TVal nm_dock_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::dockBegin()";
+    const char *who = "Tphp\\Tui\\Layout::dockBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     cui_dock_begin(tui_need_ui(vm, (TObj *)self, who), id, NULL);
     return TV_NULL;
@@ -1325,12 +1325,12 @@ static TVal nm_dock_begin(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_dock_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    cui_dock_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\App::dockEnd()"));
+    cui_dock_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\Layout::dockEnd()"));
     return TV_NULL;
 }
 
 static TVal nm_dock_item(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::dockItem()";
+    const char *who = "Tphp\\Tui\\Layout::dockItem()";
     const char *icon = tui_arg_str(vm, args, n, 0, who);
     const char *label = tui_arg_str(vm, args, n, 1, who);
     return open_out(cui_dock_item_ex(tui_need_ui(vm, (TObj *)self, who),
@@ -1341,12 +1341,12 @@ static TVal nm_dock_separator(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_dock_separator(tui_need_ui(vm, (TObj *)self,
-                                   "Tphp\\Tui\\App::dockSeparator()"));
+                                   "Tphp\\Tui\\Layout::dockSeparator()"));
     return TV_NULL;
 }
 
 static TVal nm_dockspace_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::dockspaceBegin()";
+    const char *who = "Tphp\\Tui\\Layout::dockspaceBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     cui_dockspace_begin_ex(tui_need_ui(vm, (TObj *)self, who), id, NULL);
     return TV_NULL;
@@ -1356,12 +1356,12 @@ static TVal nm_dockspace_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_dockspace_end(tui_need_ui(vm, (TObj *)self,
-                                  "Tphp\\Tui\\App::dockspaceEnd()"));
+                                  "Tphp\\Tui\\Layout::dockspaceEnd()"));
     return TV_NULL;
 }
 
 static TVal nm_dock_panel_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::dockPanelBegin()";
+    const char *who = "Tphp\\Tui\\Layout::dockPanelBegin()";
     const char *title = tui_arg_str(vm, args, n, 0, who);
     bool open = open_in(vm, args, n, 1, who, "open");
     GSTATE->dockpanel_on = cui_dock_panel_begin_ex(tui_need_ui(vm, (TObj *)self, who),
@@ -1374,7 +1374,7 @@ static TVal nm_dock_panel_end(VM *vm, void *self, TVal *args, int n) {
     (void)n;
     if (GSTATE->dockpanel_on) {
         cui_dock_panel_end(tui_need_ui(vm, (TObj *)self,
-                                       "Tphp\\Tui\\App::dockPanelEnd()"));
+                                       "Tphp\\Tui\\Layout::dockPanelEnd()"));
         GSTATE->dockpanel_on = false;
     }
     return TV_NULL;
@@ -1382,7 +1382,7 @@ static TVal nm_dock_panel_end(VM *vm, void *self, TVal *args, int n) {
 
 /* dockSave：先探大小再取（堆缓冲，返回 JSON 字符串） */
 static TVal nm_dock_save(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::dockSave()";
+    const char *who = "Tphp\\Tui\\Layout::dockSave()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     cui_ctx *ui = tui_need_ui(vm, (TObj *)self, who);
     size_t need = cui_dock_save(ui, id, NULL, 0);
@@ -1396,7 +1396,7 @@ static TVal nm_dock_save(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_dock_load(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::dockLoad()";
+    const char *who = "Tphp\\Tui\\Layout::dockLoad()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     const char *text = tui_arg_str(vm, args, n, 1, who);
     return open_out(cui_dock_load(tui_need_ui(vm, (TObj *)self, who), id, text));
@@ -1406,7 +1406,7 @@ static TVal nm_dock_load(VM *vm, void *self, TVal *args, int n) {
 
 /* carouselBegin：index 进出，返回新索引 */
 static TVal nm_carousel_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::carouselBegin()";
+    const char *who = "Tphp\\Tui\\Layout::carouselBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int64_t cnt = tui_arg_int(vm, args, n, 1, who, "count");
     int idx = (int)tui_arg_int(vm, args, n, 2, who, "index");
@@ -1418,7 +1418,7 @@ static TVal nm_carousel_slide_begin(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_carousel_slide_begin(tui_need_ui(vm, (TObj *)self,
-                                         "Tphp\\Tui\\App::carouselSlideBegin()"));
+                                         "Tphp\\Tui\\Layout::carouselSlideBegin()"));
     return TV_NULL;
 }
 
@@ -1426,26 +1426,26 @@ static TVal nm_carousel_slide_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_carousel_slide_end(tui_need_ui(vm, (TObj *)self,
-                                       "Tphp\\Tui\\App::carouselSlideEnd()"));
+                                       "Tphp\\Tui\\Layout::carouselSlideEnd()"));
     return TV_NULL;
 }
 
 static TVal nm_carousel_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    cui_carousel_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\App::carouselEnd()"));
+    cui_carousel_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\Layout::carouselEnd()"));
     return TV_NULL;
 }
 
 static TVal nm_kanban_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::kanbanBegin()";
+    const char *who = "Tphp\\Tui\\Layout::kanbanBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     cui_kanban_begin(tui_need_ui(vm, (TObj *)self, who), id);
     return TV_NULL;
 }
 
 static TVal nm_kanban_column_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::kanbanColumnBegin()";
+    const char *who = "Tphp\\Tui\\Layout::kanbanColumnBegin()";
     const char *title = tui_arg_str(vm, args, n, 0, who);
     int64_t cards = tui_arg_int(vm, args, n, 1, who, "cardCount");
     return open_out(cui_kanban_column_begin_ex(tui_need_ui(vm, (TObj *)self, who),
@@ -1453,7 +1453,7 @@ static TVal nm_kanban_column_begin(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_kanban_card_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::kanbanCardBegin()";
+    const char *who = "Tphp\\Tui\\Layout::kanbanCardBegin()";
     int64_t id = tui_arg_int(vm, args, n, 0, who, "cardId");
     return open_out(cui_kanban_card_begin(tui_need_ui(vm, (TObj *)self, who),
                                           (int)id));
@@ -1463,7 +1463,7 @@ static TVal nm_kanban_card_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_kanban_card_end(tui_need_ui(vm, (TObj *)self,
-                                    "Tphp\\Tui\\App::kanbanCardEnd()"));
+                                    "Tphp\\Tui\\Layout::kanbanCardEnd()"));
     return TV_NULL;
 }
 
@@ -1471,7 +1471,7 @@ static TVal nm_kanban_column_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_kanban_column_end(tui_need_ui(vm, (TObj *)self,
-                                      "Tphp\\Tui\\App::kanbanColumnEnd()"));
+                                      "Tphp\\Tui\\Layout::kanbanColumnEnd()"));
     return TV_NULL;
 }
 
@@ -1479,7 +1479,7 @@ static TVal nm_kanban_column_end(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_kanban_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    const char *who = "Tphp\\Tui\\App::kanbanEnd()";
+    const char *who = "Tphp\\Tui\\Layout::kanbanEnd()";
     cui_kanban_move m;
     memset(&m, 0, sizeof m);
     bool moved = cui_kanban_end(tui_need_ui(vm, (TObj *)self, who), &m);
@@ -1492,7 +1492,7 @@ static TVal nm_kanban_end(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_expandable_card_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::expandableCardBegin()";
+    const char *who = "Tphp\\Tui\\Layout::expandableCardBegin()";
     const char *title = tui_arg_str(vm, args, n, 0, who);
     bool open = open_in(vm, args, n, 1, who, "open");
     GSTATE->expand_on = cui_expandable_card_begin(tui_need_ui(vm, (TObj *)self, who),
@@ -1505,14 +1505,14 @@ static TVal nm_expandable_card_end(VM *vm, void *self, TVal *args, int n) {
     (void)n;
     if (GSTATE->expand_on) {
         cui_expandable_card_end(tui_need_ui(vm, (TObj *)self,
-                                            "Tphp\\Tui\\App::expandableCardEnd()"));
+                                            "Tphp\\Tui\\Layout::expandableCardEnd()"));
         GSTATE->expand_on = false;
     }
     return TV_NULL;
 }
 
 static TVal nm_card_stack_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::cardStackBegin()";
+    const char *who = "Tphp\\Tui\\Layout::cardStackBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int64_t cnt = tui_arg_int(vm, args, n, 1, who, "count");
     cui_card_stack_begin(tui_need_ui(vm, (TObj *)self, who), id, (int)cnt, NULL);
@@ -1520,7 +1520,7 @@ static TVal nm_card_stack_begin(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_card_stack_item_begin(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::cardStackItemBegin()";
+    const char *who = "Tphp\\Tui\\Layout::cardStackItemBegin()";
     int64_t depth = tui_arg_int(vm, args, n, 0, who, "depth");
     cui_card_stack_item_begin(tui_need_ui(vm, (TObj *)self, who), (int)depth);
     return TV_NULL;
@@ -1530,7 +1530,7 @@ static TVal nm_card_stack_item_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_card_stack_item_end(tui_need_ui(vm, (TObj *)self,
-                                        "Tphp\\Tui\\App::cardStackItemEnd()"));
+                                        "Tphp\\Tui\\Layout::cardStackItemEnd()"));
     return TV_NULL;
 }
 
@@ -1538,7 +1538,7 @@ static TVal nm_card_stack_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     return TV_INT(cui_card_stack_end(tui_need_ui(vm, (TObj *)self,
-                                                 "Tphp\\Tui\\App::cardStackEnd()")));
+                                                 "Tphp\\Tui\\Layout::cardStackEnd()")));
 }
 
 /* ---- 注册 ---- */

@@ -26,7 +26,7 @@ static TVal *row_get(TArr *row, const char *k) {
 static TArr *row_arr(VM *vm, TVal e, const char *who, const char *pname, int pos) {
     if (e.t != T_ARR)
         RAISE(vm, "TypeError",
-              "%s(): array element %d of argument %s must be of type array, %s given",
+              "%s: array element %d of argument %s must be of type array, %s given",
               who, pos, pname, tphp_val_type_name(e));
     return (TArr *)e.u.p;
 }
@@ -47,35 +47,35 @@ static cui_color col_of(int64_t v) {
 /* ---- 文本扩展 ---- */
 
 static TVal nm_muted(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::muted()";
+    const char *who = "Tphp\\Tui\\Widgets::muted()";
     const char *s = tui_arg_str(vm, args, n, 0, who);
     cui_muted(tui_need_ui(vm, (TObj *)self, who), s);
     return TV_NULL;
 }
 
 static TVal nm_code(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::code()";
+    const char *who = "Tphp\\Tui\\Widgets::code()";
     const char *s = tui_arg_str(vm, args, n, 0, who);
     cui_code(tui_need_ui(vm, (TObj *)self, who), s);
     return TV_NULL;
 }
 
 static TVal nm_kbd(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::kbd()";
+    const char *who = "Tphp\\Tui\\Widgets::kbd()";
     const char *s = tui_arg_str(vm, args, n, 0, who);
     cui_kbd(tui_need_ui(vm, (TObj *)self, who), s);
     return TV_NULL;
 }
 
 static TVal nm_link(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::link()";
+    const char *who = "Tphp\\Tui\\Widgets::link()";
     const char *s = tui_arg_str(vm, args, n, 0, who);
     bool clicked = cui_link(tui_need_ui(vm, (TObj *)self, who), s);
     return clicked ? TV_TRUE : TV_FALSE;
 }
 
 static TVal nm_icon(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::icon()";
+    const char *who = "Tphp\\Tui\\Widgets::icon()";
     const char *name = tui_arg_str(vm, args, n, 0, who);
     double size = tui_opt_float(vm, args, n, 1, 0, who, "size");      /* 0 → CUI 默认 16 */
     int64_t color = tui_opt_int(vm, args, n, 2, -1, who, "color");    /* -1 → 主题前景色 */
@@ -84,14 +84,14 @@ static TVal nm_icon(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_tooltip(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::tooltip()";
+    const char *who = "Tphp\\Tui\\Widgets::tooltip()";
     const char *s = tui_arg_str(vm, args, n, 0, who);
     cui_tooltip(tui_need_ui(vm, (TObj *)self, who), s);
     return TV_NULL;
 }
 
 static TVal nm_gap(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::gap()";
+    const char *who = "Tphp\\Tui\\Widgets::gap()";
     double size = n >= 1 ? tui_opt_float(vm, args, n, 0, 8, who, "size") : 8;
     cui_gap(tui_need_ui(vm, (TObj *)self, who), (float)size);
     return TV_NULL;
@@ -102,7 +102,7 @@ static TVal nm_gap(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_card_begin(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    const char *who = "Tphp\\Tui\\App::cardBegin()";
+    const char *who = "Tphp\\Tui\\Widgets::cardBegin()";
     bool clicked = cui_card_begin(tui_need_ui(vm, (TObj *)self, who), NULL);
     return clicked ? TV_TRUE : TV_FALSE;
 }
@@ -110,7 +110,7 @@ static TVal nm_card_begin(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_card_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    const char *who = "Tphp\\Tui\\App::cardEnd()";
+    const char *who = "Tphp\\Tui\\Widgets::cardEnd()";
     cui_card_end(tui_need_ui(vm, (TObj *)self, who));
     return TV_NULL;
 }
@@ -118,21 +118,21 @@ static TVal nm_card_end(VM *vm, void *self, TVal *args, int n) {
 /* ---- 徽章头像 ---- */
 
 static TVal nm_badge(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::badge()";
+    const char *who = "Tphp\\Tui\\Widgets::badge()";
     const char *s = tui_arg_str(vm, args, n, 0, who);
     cui_badge_ex(tui_need_ui(vm, (TObj *)self, who), s, NULL);
     return TV_NULL;
 }
 
 static TVal nm_avatar(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::avatar()";
+    const char *who = "Tphp\\Tui\\Widgets::avatar()";
     const char *s = tui_arg_str(vm, args, n, 0, who);
     cui_avatar_ex(tui_need_ui(vm, (TObj *)self, who), s, NULL);
     return TV_NULL;
 }
 
 static TVal nm_avatar_group(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::avatarGroup()";
+    const char *who = "Tphp\\Tui\\Widgets::avatarGroup()";
     int cnt = 0;
     char **names = tui_strs(vm, &args[0], who, "names", &cnt);
     int64_t max_vis = tui_opt_int(vm, args, n, 1, 3, who, "maxVisible");
@@ -146,14 +146,14 @@ static TVal nm_avatar_group(VM *vm, void *self, TVal *args, int n) {
 /* ---- 进度反馈 ---- */
 
 static TVal nm_progress(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::progress()";
+    const char *who = "Tphp\\Tui\\Widgets::progress()";
     double v = n >= 1 ? tui_opt_float(vm, args, n, 0, 0, who, "value") : 0;
     cui_progress_ex(tui_need_ui(vm, (TObj *)self, who), (float)v, NULL);
     return TV_NULL;
 }
 
 static TVal nm_progress_ring(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::progressRing()";
+    const char *who = "Tphp\\Tui\\Widgets::progressRing()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     double v = n >= 2 ? tui_opt_float(vm, args, n, 1, 0, who, "value") : 0;
     double size = tui_opt_float(vm, args, n, 2, 48, who, "size");
@@ -163,14 +163,14 @@ static TVal nm_progress_ring(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_spinner(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::spinner()";
+    const char *who = "Tphp\\Tui\\Widgets::spinner()";
     double size = tui_opt_float(vm, args, n, 0, 24, who, "size");
     cui_spinner(tui_need_ui(vm, (TObj *)self, who), (float)size);
     return TV_NULL;
 }
 
 static TVal nm_skeleton(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::skeleton()";
+    const char *who = "Tphp\\Tui\\Widgets::skeleton()";
     double height = tui_opt_float(vm, args, n, 0, 20, who, "height");
     /* 宽度拉满（CUI_FILL），高度为内容占位行高 */
     cui_skeleton(tui_need_ui(vm, (TObj *)self, who), CUI_FILL, (float)height);
@@ -180,7 +180,7 @@ static TVal nm_skeleton(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_loader(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    const char *who = "Tphp\\Tui\\App::loader()";
+    const char *who = "Tphp\\Tui\\Widgets::loader()";
     cui_loader_ex(tui_need_ui(vm, (TObj *)self, who), NULL);
     return TV_NULL;
 }
@@ -188,14 +188,14 @@ static TVal nm_loader(VM *vm, void *self, TVal *args, int n) {
 /* ---- 状态/信息 ---- */
 
 static TVal nm_empty_state(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::emptyState()";
+    const char *who = "Tphp\\Tui\\Widgets::emptyState()";
     const char *title = tui_arg_str(vm, args, n, 0, who);
     bool action = cui_empty_state_ex(tui_need_ui(vm, (TObj *)self, who), title, NULL);
     return action ? TV_TRUE : TV_FALSE;
 }
 
 static TVal nm_metric(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::metric()";
+    const char *who = "Tphp\\Tui\\Widgets::metric()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     const char *value = tui_arg_str(vm, args, n, 1, who);
     cui_metric_ex(tui_need_ui(vm, (TObj *)self, who), label, value, NULL);
@@ -203,7 +203,7 @@ static TVal nm_metric(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_meter(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::meter()";
+    const char *who = "Tphp\\Tui\\Widgets::meter()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     double used = tui_arg_float(vm, args, n, 1, who, "used");
     double total = tui_arg_float(vm, args, n, 2, who, "total");
@@ -216,14 +216,14 @@ static TVal nm_meter(VM *vm, void *self, TVal *args, int n) {
 /* ---- 按钮族 ---- */
 
 static TVal nm_icon_button(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::iconButton()";
+    const char *who = "Tphp\\Tui\\Widgets::iconButton()";
     const char *icon = tui_arg_str(vm, args, n, 0, who);
     bool clicked = cui_icon_button_ex(tui_need_ui(vm, (TObj *)self, who), icon, NULL);
     return clicked ? TV_TRUE : TV_FALSE;
 }
 
 static TVal nm_copy_button(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::copyButton()";
+    const char *who = "Tphp\\Tui\\Widgets::copyButton()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     const char *text = tui_arg_str(vm, args, n, 1, who);
     bool clicked = cui_copy_button(tui_need_ui(vm, (TObj *)self, who), id, text);
@@ -231,14 +231,14 @@ static TVal nm_copy_button(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_hold_button(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::holdButton()";
+    const char *who = "Tphp\\Tui\\Widgets::holdButton()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     bool done = cui_hold_button_ex(tui_need_ui(vm, (TObj *)self, who), label, NULL);
     return done ? TV_TRUE : TV_FALSE;
 }
 
 static TVal nm_confirm_button(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::confirmButton()";
+    const char *who = "Tphp\\Tui\\Widgets::confirmButton()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     bool ok = cui_confirm_button_ex(tui_need_ui(vm, (TObj *)self, who), label, NULL);
     return ok ? TV_TRUE : TV_FALSE;
@@ -248,7 +248,7 @@ static TVal nm_button_group_begin(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_button_group_begin(tui_need_ui(vm, (TObj *)self,
-                                       "Tphp\\Tui\\App::buttonGroupBegin()"));
+                                       "Tphp\\Tui\\Widgets::buttonGroupBegin()"));
     return TV_NULL;
 }
 
@@ -256,12 +256,12 @@ static TVal nm_button_group_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_button_group_end(tui_need_ui(vm, (TObj *)self,
-                                     "Tphp\\Tui\\App::buttonGroupEnd()"));
+                                     "Tphp\\Tui\\Widgets::buttonGroupEnd()"));
     return TV_NULL;
 }
 
 static TVal nm_split_button(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::splitButton()";
+    const char *who = "Tphp\\Tui\\Widgets::splitButton()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     int cnt = 0;
     char **items = tui_strs(vm, &args[1], who, "items", &cnt);
@@ -272,11 +272,11 @@ static TVal nm_split_button(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_status_button(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::statusButton()";
+    const char *who = "Tphp\\Tui\\Widgets::statusButton()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     int64_t st = tui_opt_int(vm, args, n, 1, 0, who, "status");
     if (st < 0 || st > 3)   /* cui_status: idle/busy/success/error */
-        RAISE(vm, "ValueError", "%s(): status must be in 0..3", who);
+        RAISE(vm, "ValueError", "%s: status must be in 0..3", who);
     bool clicked = cui_status_button_ex(tui_need_ui(vm, (TObj *)self, who),
                                         label, (cui_status)st, NULL);
     return clicked ? TV_TRUE : TV_FALSE;
@@ -285,10 +285,10 @@ static TVal nm_status_button(VM *vm, void *self, TVal *args, int n) {
 /* reactions：items = [['icon'=>'👍','count'=>3,'active'=>false], ...]
  * icon 必填 string；count/active 可选（缺省 0/false） */
 static TVal nm_reactions(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::reactions()";
+    const char *who = "Tphp\\Tui\\Widgets::reactions()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     if (n <= 1 || args[1].t != T_ARR)
-        RAISE(vm, "TypeError", "%s(): argument items must be of type array, %s given",
+        RAISE(vm, "TypeError", "%s: argument items must be of type array, %s given",
               who, n <= 1 ? "null" : tphp_val_type_name(args[1]));
     TArr *rows = (TArr *)args[1].u.p;
     /* 第一趟：全量校验（raise 前不分配） */
@@ -299,13 +299,13 @@ static TVal nm_reactions(VM *vm, void *self, TVal *args, int n) {
         TArr *row = row_arr(vm, e, who, "items", cnt + 1);
         TVal *ic = row_get(row, "icon");
         if (!ic || ic->t != T_STR)
-            RAISE(vm, "TypeError", "%s(): items[%d][\"icon\"] must be a string", who, cnt);
+            RAISE(vm, "TypeError", "%s: items[%d][\"icon\"] must be a string", who, cnt);
         TVal *ct = row_get(row, "count");
         if (ct && ct->t != T_INT)
-            RAISE(vm, "TypeError", "%s(): items[%d][\"count\"] must be an int", who, cnt);
+            RAISE(vm, "TypeError", "%s: items[%d][\"count\"] must be an int", who, cnt);
         TVal *ac = row_get(row, "active");
         if (ac && ac->t != T_TRUE && ac->t != T_FALSE)
-            RAISE(vm, "TypeError", "%s(): items[%d][\"active\"] must be a bool", who, cnt);
+            RAISE(vm, "TypeError", "%s: items[%d][\"active\"] must be a bool", who, cnt);
         cnt++;
     }
     /* 第二趟：填充（无 raise 点） */
@@ -331,14 +331,14 @@ static TVal nm_reactions(VM *vm, void *self, TVal *args, int n) {
 /* ---- 文本特效 ---- */
 
 static TVal nm_shimmer_text(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::shimmerText()";
+    const char *who = "Tphp\\Tui\\Widgets::shimmerText()";
     const char *s = tui_arg_str(vm, args, n, 0, who);
     cui_shimmer_text_ex(tui_need_ui(vm, (TObj *)self, who), s, NULL);
     return TV_NULL;
 }
 
 static TVal nm_typewriter(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::typewriter()";
+    const char *who = "Tphp\\Tui\\Widgets::typewriter()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     const char *s = tui_arg_str(vm, args, n, 1, who);
     bool done = cui_typewriter_ex(tui_need_ui(vm, (TObj *)self, who), id, s, NULL);
@@ -346,7 +346,7 @@ static TVal nm_typewriter(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_text_reveal(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::textReveal()";
+    const char *who = "Tphp\\Tui\\Widgets::textReveal()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     const char *s = tui_arg_str(vm, args, n, 1, who);
     cui_text_reveal_ex(tui_need_ui(vm, (TObj *)self, who), id, s, NULL);
@@ -354,7 +354,7 @@ static TVal nm_text_reveal(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_word_rotate(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::wordRotate()";
+    const char *who = "Tphp\\Tui\\Widgets::wordRotate()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int cnt = 0;
     char **words = tui_strs(vm, &args[1], who, "words", &cnt);
@@ -366,7 +366,7 @@ static TVal nm_word_rotate(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_number_roll(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::numberRoll()";
+    const char *who = "Tphp\\Tui\\Widgets::numberRoll()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     const char *s = tui_arg_str(vm, args, n, 1, who);
     cui_number_roll_ex(tui_need_ui(vm, (TObj *)self, who), id, s, NULL);
@@ -374,14 +374,14 @@ static TVal nm_number_roll(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_gradient_text(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::gradientText()";
+    const char *who = "Tphp\\Tui\\Widgets::gradientText()";
     const char *s = tui_arg_str(vm, args, n, 0, who);
     cui_gradient_text_ex(tui_need_ui(vm, (TObj *)self, who), s, NULL);
     return TV_NULL;
 }
 
 static TVal nm_counter(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::counter()";
+    const char *who = "Tphp\\Tui\\Widgets::counter()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     double v = n >= 2 ? tui_opt_float(vm, args, n, 1, 0, who, "value") : 0;
     cui_counter_ex(tui_need_ui(vm, (TObj *)self, who), id, v, NULL);
@@ -391,10 +391,10 @@ static TVal nm_counter(VM *vm, void *self, TVal *args, int n) {
 /* ticker：items = [['label'=>'BTC','value'=>'67,240','delta'=>1.2,'lower_is_better'=>false], ...]
  * label 必填；value 可空串→NULL；delta/lower_is_better 可选 */
 static TVal nm_ticker(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::ticker()";
+    const char *who = "Tphp\\Tui\\Widgets::ticker()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     if (n <= 1 || args[1].t != T_ARR)
-        RAISE(vm, "TypeError", "%s(): argument items must be of type array, %s given",
+        RAISE(vm, "TypeError", "%s: argument items must be of type array, %s given",
               who, n <= 1 ? "null" : tphp_val_type_name(args[1]));
     TArr *rows = (TArr *)args[1].u.p;
     /* 第一趟：校验 */
@@ -405,16 +405,16 @@ static TVal nm_ticker(VM *vm, void *self, TVal *args, int n) {
         TArr *row = row_arr(vm, e, who, "items", cnt + 1);
         TVal *lb = row_get(row, "label");
         if (!lb || lb->t != T_STR)
-            RAISE(vm, "TypeError", "%s(): items[%d][\"label\"] must be a string", who, cnt);
+            RAISE(vm, "TypeError", "%s: items[%d][\"label\"] must be a string", who, cnt);
         TVal *vl = row_get(row, "value");
         if (vl && vl->t != T_STR)
-            RAISE(vm, "TypeError", "%s(): items[%d][\"value\"] must be a string", who, cnt);
+            RAISE(vm, "TypeError", "%s: items[%d][\"value\"] must be a string", who, cnt);
         TVal *dl = row_get(row, "delta");
         if (dl && dl->t != T_INT && dl->t != T_FLOAT)
-            RAISE(vm, "TypeError", "%s(): items[%d][\"delta\"] must be numeric", who, cnt);
+            RAISE(vm, "TypeError", "%s: items[%d][\"delta\"] must be numeric", who, cnt);
         TVal *lb2 = row_get(row, "lower_is_better");
         if (lb2 && lb2->t != T_TRUE && lb2->t != T_FALSE)
-            RAISE(vm, "TypeError", "%s(): items[%d][\"lower_is_better\"] must be a bool",
+            RAISE(vm, "TypeError", "%s: items[%d][\"lower_is_better\"] must be a bool",
                   who, cnt);
         cnt++;
     }

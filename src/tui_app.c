@@ -60,7 +60,7 @@ static TVal nm_screenshot_rgba(VM *vm, void *self, TVal *args, int n) {
     cui_ctx *ui = tui_need_ui(vm, (TObj *)self, who);
     int bw = 0, bh = 0;
     if (!shot_dims(app, &bw, &bh))
-        RAISE(vm, "LogicException", "%s(): window has no size yet", who);
+        RAISE(vm, "LogicException", "%s: window has no size yet", who);
     float dpi = cui_dpi_scale(ui);
     int pw = (int)((float)bw * dpi) + 1;
     int ph = (int)((float)bh * dpi) + 1;
@@ -68,7 +68,7 @@ static TVal nm_screenshot_rgba(VM *vm, void *self, TVal *args, int n) {
     uint8_t *rgba = tm_malloc(bytes);
     if (!cui_app_screenshot(app, rgba, pw, ph)) {
         tm_free(rgba);
-        RAISE(vm, "LogicException", "%s(): screenshot buffer rejected", who);
+        RAISE(vm, "LogicException", "%s: screenshot buffer rejected", who);
     }
     TStr *s = tstr_new((const char *)rgba, bytes);
     tm_free(rgba);
@@ -91,7 +91,7 @@ static TVal nm_file_dialog(VM *vm, void *self, TVal *args, int n) {
     const char *filter = tui_opt_str(vm, args, n, 3, "", who, "filter");
     const char *default_name = tui_opt_str(vm, args, n, 4, "", who, "defaultName");
     if (kind < 0 || kind > 2)
-        RAISE(vm, "ValueError", "%s(): kind must be 0 (open), 1 (save) or 2 (folder)", who);
+        RAISE(vm, "ValueError", "%s: kind must be 0 (open), 1 (save) or 2 (folder)", who);
     cui_file_dialog_opts o;
     memset(&o, 0, sizeof o);
     o.kind = (cui_file_dialog_kind)kind;
@@ -119,7 +119,7 @@ static TVal nm_set_theme(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::setTheme()";
     int64_t mode = tui_arg_int(vm, args, n, 0, who, "mode");
     if (mode < 0 || mode > 1)   /* 0 light, 1 dark */
-        RAISE(vm, "ValueError", "%s(): mode must be 0 (light) or 1 (dark)", who);
+        RAISE(vm, "ValueError", "%s: mode must be 0 (light) or 1 (dark)", who);
     cui_set_theme(tui_need_ui(vm, (TObj *)self, who), (cui_theme_mode)mode);
     return TV_NULL;
 }
@@ -128,7 +128,7 @@ static TVal nm_set_accent(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::setAccent()";
     int64_t accent = tui_arg_int(vm, args, n, 0, who, "accent");
     if (accent < 0 || accent >= CUI_ACCENT_COUNT)
-        RAISE(vm, "ValueError", "%s(): accent must be in 0..%d", who,
+        RAISE(vm, "ValueError", "%s: accent must be in 0..%d", who,
               (int)CUI_ACCENT_COUNT - 1);
     cui_set_accent(tui_need_ui(vm, (TObj *)self, who), (cui_accent)accent);
     return TV_NULL;
@@ -198,7 +198,7 @@ static TVal nm_simulate_mouse_button(VM *vm, void *self, TVal *args, int n) {
     int64_t button = tui_opt_int(vm, args, n, 0, 0, who, "button");
     bool down = tui_opt_bool(vm, args, n, 1, true, who, "down");
     if (button < 0 || button > 2)
-        RAISE(vm, "ValueError", "%s(): button must be 0/1/2 (left/right/middle)", who);
+        RAISE(vm, "ValueError", "%s: button must be 0/1/2 (left/right/middle)", who);
     cui_input_mouse_button(tui_need_ui(vm, (TObj *)self, who),
                            (cui_mouse_button)button, down);
     return TV_NULL;
@@ -210,7 +210,7 @@ static TVal nm_simulate_key(VM *vm, void *self, TVal *args, int n) {
     bool down = tui_opt_bool(vm, args, n, 1, true, who, "down");
     int64_t mods = tui_opt_int(vm, args, n, 2, 0, who, "mods");
     if (key < 0)
-        RAISE(vm, "ValueError", "%s(): key must be >= 0 (cui_key enum value)", who);
+        RAISE(vm, "ValueError", "%s: key must be >= 0 (cui_key enum value)", who);
     cui_input_key(tui_need_ui(vm, (TObj *)self, who), (cui_key)key, down, (int)mods);
     return TV_NULL;
 }
@@ -254,7 +254,7 @@ static TVal nm_font_load(VM *vm, void *self, TVal *args, int n) {
     cui_ctx *ui = tui_need_ui(vm, (TObj *)self, who);
     cui_font f = cui_font_load_file(ui, path);
     if (f < 0)
-        RAISE(vm, "RuntimeException", "%s(): cannot load font \"%s\"", who, path);
+        RAISE(vm, "RuntimeException", "%s: cannot load font \"%s\"", who, path);
     return TV_INT((int64_t)f);
 }
 
@@ -322,7 +322,7 @@ static TVal nm_font_set_role(VM *vm, void *self, TVal *args, int n) {
     int64_t role = tui_arg_enum(vm, args, n, 0, who, "role", TUI_LC_FONT_ROLE);
     int64_t font = tui_arg_int(vm, args, n, 1, who, "font");
     if (role < 0 || role > 4)
-        RAISE(vm, "ValueError", "%s(): role must be in 0..4", who);
+        RAISE(vm, "ValueError", "%s: role must be in 0..4", who);
     cui_font_set_role(tui_need_ui(vm, (TObj *)self, who),
                       (cui_font)role, (cui_font)font);
     return TV_NULL;
@@ -334,7 +334,7 @@ static TVal nm_font_add_fallback(VM *vm, void *self, TVal *args, int n) {
     int64_t font = tui_arg_enum(vm, args, n, 0, who, "font", TUI_LC_FONT_ROLE);
     int64_t fallback = tui_arg_int(vm, args, n, 1, who, "fallback");
     if (font < 0)
-        RAISE(vm, "ValueError", "%s(): font must be a cui_font id (>= 0)", who);
+        RAISE(vm, "ValueError", "%s: font must be a cui_font id (>= 0)", who);
     cui_font_add_fallback(tui_need_ui(vm, (TObj *)self, who),
                           (cui_font)font, (cui_font)fallback);
     return TV_NULL;

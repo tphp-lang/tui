@@ -6,15 +6,16 @@
  * 异常时泄漏已分配内存；两趟结构保证第二趟不可能再抛，天然无泄漏。
  */
 #include "tui_util.h"
-#include "builtin.h"    /* need_int（strict：仅 T_INT） */
+#include "builtin.h"    /* 引擎公共声明（tphp_val_type_name 等） */
 
 #include <string.h>
 
-/* ---- 参数读取（必需） ---- */
+/* ---- 参数读取（必需）----
+ * 约定：who 恒含 "()"，下列错误格式一律不再补括号。 */
 
 const char *tui_arg_str(VM *vm, TVal *args, int n, int i, const char *who) {
     if (n <= i || args[i].t != T_STR)
-        tphp_vm_raise(vm, "TypeError", "%s() expects argument %d to be a string",
+        tphp_vm_raise(vm, "TypeError", "%s expects argument %d to be a string",
                       who, i + 1);
     return tstr_val((TStr *)args[i].u.p);
 }
@@ -22,18 +23,23 @@ const char *tui_arg_str(VM *vm, TVal *args, int n, int i, const char *who) {
 int64_t tui_arg_int(VM *vm, TVal *args, int n, int i, const char *who,
                     const char *pname) {
     if (n <= i)
-        tphp_vm_raise(vm, "ArgumentCountError", "%s() expects at least %d argument(s)",
+        tphp_vm_raise(vm, "ArgumentCountError", "%s expects at least %d argument(s)",
                       who, i + 1);
-    return need_int(vm, &args[i], who, pname);
+    /* int 校验留在 tui 层：引擎 need_* 的约定是传裸名再补 "()"，
+     * 而 tui 的 who 已含 "()"，传过去会渲染成双括号 */
+    if (args[i].t != T_INT)
+        tphp_vm_raise(vm, "TypeError", "%s: argument %s must be of type int, %s given",
+                      who, pname, tphp_val_type_name(args[i]));
+    return args[i].u.i;
 }
 
 bool tui_arg_bool(VM *vm, TVal *args, int n, int i, const char *who,
                   const char *pname) {
     if (n <= i)
-        tphp_vm_raise(vm, "ArgumentCountError", "%s() expects at least %d argument(s)",
+        tphp_vm_raise(vm, "ArgumentCountError", "%s expects at least %d argument(s)",
                       who, i + 1);
     if (args[i].t != T_TRUE && args[i].t != T_FALSE)
-        tphp_vm_raise(vm, "TypeError", "%s(): argument %s must be of type bool, %s given",
+        tphp_vm_raise(vm, "TypeError", "%s: argument %s must be of type bool, %s given",
                       who, pname, tphp_val_type_name(args[i]));
     return args[i].t == T_TRUE;
 }
@@ -41,11 +47,11 @@ bool tui_arg_bool(VM *vm, TVal *args, int n, int i, const char *who,
 double tui_arg_float(VM *vm, TVal *args, int n, int i, const char *who,
                      const char *pname) {
     if (n <= i)
-        tphp_vm_raise(vm, "ArgumentCountError", "%s() expects at least %d argument(s)",
+        tphp_vm_raise(vm, "ArgumentCountError", "%s expects at least %d argument(s)",
                       who, i + 1);
     if (args[i].t == T_FLOAT) return args[i].u.d;
     if (args[i].t == T_INT) return (double)args[i].u.i;
-    tphp_vm_raise(vm, "TypeError", "%s(): argument %s must be of type float, %s given",
+    tphp_vm_raise(vm, "TypeError", "%s: argument %s must be of type float, %s given",
                   who, pname, tphp_val_type_name(args[i]));
 }
 
@@ -86,7 +92,7 @@ int64_t tui_opt_enum(VM *vm, TVal *args, int n, int i, int64_t def,
         }
     }
     char dbuf[256];
-    /* who 形如 "Tphp\\Tui\\App::button()"（自带括号），故不再补 */
+    /* who 形如 "Tphp\\Tui\\Widgets::button()"（自带括号），故不再补 */
     tphp_vm_raise(vm, "TypeError",
                   "%s: argument %s must be of type %s, %s given",
                   who, pname, enum_display(enum_lc, dbuf, sizeof dbuf),
@@ -97,7 +103,7 @@ int64_t tui_arg_enum(VM *vm, TVal *args, int n, int i, const char *who,
                      const char *pname, const char *enum_lc) {
     if (n <= i)
         tphp_vm_raise(vm, "ArgumentCountError",
-                      "%s() expects at least %d argument(s)", who, i + 1);
+                      "%s expects at least %d argument(s)", who, i + 1);
     return tui_opt_enum(vm, args, n, i, 0, who, pname, enum_lc);
 }
 
@@ -106,14 +112,18 @@ int64_t tui_arg_enum(VM *vm, TVal *args, int n, int i, const char *who,
 int64_t tui_opt_int(VM *vm, TVal *args, int n, int i, int64_t def,
                     const char *who, const char *pname) {
     if (n <= i) return def;
-    return need_int(vm, &args[i], who, pname);   /* strict：非 int 抛 TypeError */
+    /* strict：非 int 抛 TypeError（同 tui_arg_int，不走引擎 need_*） */
+    if (args[i].t != T_INT)
+        tphp_vm_raise(vm, "TypeError", "%s: argument %s must be of type int, %s given",
+                      who, pname, tphp_val_type_name(args[i]));
+    return args[i].u.i;
 }
 
 bool tui_opt_bool(VM *vm, TVal *args, int n, int i, bool def,
                   const char *who, const char *pname) {
     if (n <= i) return def;
     if (args[i].t != T_TRUE && args[i].t != T_FALSE)
-        tphp_vm_raise(vm, "TypeError", "%s(): argument %s must be of type bool, %s given",
+        tphp_vm_raise(vm, "TypeError", "%s: argument %s must be of type bool, %s given",
                       who, pname, tphp_val_type_name(args[i]));
     return args[i].t == T_TRUE;
 }
@@ -122,7 +132,7 @@ const char *tui_opt_str(VM *vm, TVal *args, int n, int i, const char *def,
                         const char *who, const char *pname) {
     if (n <= i) return def;
     if (args[i].t != T_STR)
-        tphp_vm_raise(vm, "TypeError", "%s(): argument %s must be of type string, %s given",
+        tphp_vm_raise(vm, "TypeError", "%s: argument %s must be of type string, %s given",
                       who, pname, tphp_val_type_name(args[i]));
     return tstr_val((TStr *)args[i].u.p);
 }
@@ -132,7 +142,7 @@ double tui_opt_float(VM *vm, TVal *args, int n, int i, double def,
     if (n <= i) return def;
     if (args[i].t == T_FLOAT) return args[i].u.d;
     if (args[i].t == T_INT) return (double)args[i].u.i;
-    tphp_vm_raise(vm, "TypeError", "%s(): argument %s must be of type float, %s given",
+    tphp_vm_raise(vm, "TypeError", "%s: argument %s must be of type float, %s given",
                   who, pname, tphp_val_type_name(args[i]));
 }
 
@@ -303,7 +313,7 @@ void tui_cls_add_native(TClass *cls, const char *name, void *fn,
 static TArr *tui_arr_of(VM *vm, TVal *v, const char *who, const char *pname) {
     if (v->t != T_ARR)
         tphp_vm_raise(vm, "TypeError",
-                      "%s(): argument %s must be of type array, %s given",
+                      "%s: argument %s must be of type array, %s given",
                       who, pname, tphp_val_type_name(*v));
     return (TArr *)v->u.p;
 }
@@ -312,7 +322,7 @@ static TArr *tui_arr_of(VM *vm, TVal *v, const char *who, const char *pname) {
 static void tui_elem_type_err(VM *vm, const char *who, const char *pname,
                               int pos, const char *want, TVal e) {
     tphp_vm_raise(vm, "TypeError",
-                  "%s(): array element %d of argument %s must be of type %s, %s given",
+                  "%s: array element %d of argument %s must be of type %s, %s given",
                   who, pos, pname, want, tphp_val_type_name(e));
 }
 

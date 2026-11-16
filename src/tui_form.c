@@ -17,9 +17,9 @@
 
 #define RAISE(vm, cls, ...) tphp_vm_raise(vm, cls, __VA_ARGS__)
 
-#define WHO_INPUT   "Tphp\\Tui\\App::input()"
-#define WHO_TEXTARA "Tphp\\Tui\\App::textarea()"
-#define WHO_SEARCH  "Tphp\\Tui\\App::search()"
+#define WHO_INPUT   "Tphp\\Tui\\Form::input()"
+#define WHO_TEXTARA "Tphp\\Tui\\Form::textarea()"
+#define WHO_SEARCH  "Tphp\\Tui\\Form::search()"
 
 /* ---- 关联数组读取（本域局部） ---- */
 
@@ -35,7 +35,7 @@ static const char *opt_row_str(VM *vm, TArr *row, const char *k,
     TVal *v = row_get(row, k);
     if (!v || v->t == T_NULL) return NULL;
     if (v->t != T_STR)
-        RAISE(vm, "TypeError", "%s(): opts[\"%s\"] must be a string", who, fkey);
+        RAISE(vm, "TypeError", "%s: opts[\"%s\"] must be a string", who, fkey);
     return tstr_val((TStr *)v->u.p);
 }
 
@@ -44,7 +44,7 @@ static bool opt_row_bool(VM *vm, TArr *row, const char *k, bool def,
     TVal *v = row_get(row, k);
     if (!v) return def;
     if (v->t != T_TRUE && v->t != T_FALSE)
-        RAISE(vm, "TypeError", "%s(): opts[\"%s\"] must be a bool", who, fkey);
+        RAISE(vm, "TypeError", "%s: opts[\"%s\"] must be a bool", who, fkey);
     return v->t == T_TRUE;
 }
 
@@ -53,7 +53,7 @@ static void fill_input_opts(VM *vm, TVal *v, cui_input_opts *o, const char *who)
     memset(o, 0, sizeof *o);
     if (!v) return;                       /* 未传 opts → NULL 语义 */
     if (v->t != T_ARR)
-        RAISE(vm, "TypeError", "%s(): argument opts must be of type array, %s given",
+        RAISE(vm, "TypeError", "%s: argument opts must be of type array, %s given",
               who, tphp_val_type_name(*v));
     TArr *r = (TArr *)v->u.p;
     o->label = opt_row_str(vm, r, "label", who, "label");
@@ -78,9 +78,9 @@ static TVal buf_roundtrip(VM *vm, cui_ctx *ui, int (*fn)(cui_ctx *, const char *
                           const char *id, const char *value, size_t cap,
                           const cui_input_opts *o, const char *who) {
     if (cap < 2)
-        RAISE(vm, "ValueError", "%s(): cap must be >= 2", who);
+        RAISE(vm, "ValueError", "%s: cap must be >= 2", who);
     if (strlen(value) + 1 > cap)
-        RAISE(vm, "ValueError", "%s(): value is longer than cap (%d)",
+        RAISE(vm, "ValueError", "%s: value is longer than cap (%d)",
               who, (int)cap);
     char *buf = tm_malloc(cap);
     size_t len = strlen(value);
@@ -127,14 +127,14 @@ static TVal nm_search(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_otp_input(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::otpInput()";
+    const char *who = "Tphp\\Tui\\Form::otpInput()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     const char *code = tui_arg_str(vm, args, n, 1, who);
     int64_t len = tui_opt_int(vm, args, n, 2, 6, who, "length");
     if (len < 1 || len > 32)
-        RAISE(vm, "ValueError", "%s(): length must be in 1..32", who);
+        RAISE(vm, "ValueError", "%s: length must be in 1..32", who);
     if ((int64_t)strlen(code) > len)
-        RAISE(vm, "ValueError", "%s(): code is longer than length", who);
+        RAISE(vm, "ValueError", "%s: code is longer than length", who);
     char *buf = tm_malloc((size_t)len + 1);
     memcpy(buf, code, strlen(code) + 1);
     cui_otp_input(tui_need_ui(vm, (TObj *)self, who), id, buf, (int)len);
@@ -144,14 +144,14 @@ static TVal nm_otp_input(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_tag_input(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::tagInput()";
+    const char *who = "Tphp\\Tui\\Form::tagInput()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     const char *val = tui_arg_str(vm, args, n, 1, who);
     int64_t cap = tui_opt_int(vm, args, n, 2, 512, who, "cap");
     if (cap < 2)
-        RAISE(vm, "ValueError", "%s(): cap must be >= 2", who);
+        RAISE(vm, "ValueError", "%s: cap must be >= 2", who);
     if ((int64_t)strlen(val) + 1 > cap)
-        RAISE(vm, "ValueError", "%s(): value is longer than cap (%d)", who, (int)cap);
+        RAISE(vm, "ValueError", "%s: value is longer than cap (%d)", who, (int)cap);
     char *buf = tm_malloc((size_t)cap);
     memcpy(buf, val, strlen(val) + 1);
     cui_tag_input_ex(tui_need_ui(vm, (TObj *)self, who), id, buf, (size_t)cap, NULL);
@@ -163,7 +163,7 @@ static TVal nm_tag_input(VM *vm, void *self, TVal *args, int n) {
 /* ---- 值型：float 家族（返回新值） ---- */
 
 static TVal nm_number(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::number()";
+    const char *who = "Tphp\\Tui\\Form::number()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     double v = tui_arg_float(vm, args, n, 1, who, "value");
     double lo = tui_arg_float(vm, args, n, 2, who, "min");
@@ -173,7 +173,7 @@ static TVal nm_number(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_slider(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::slider()";
+    const char *who = "Tphp\\Tui\\Form::slider()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     float v = (float)tui_arg_float(vm, args, n, 1, who, "value");
     float lo = (float)tui_arg_float(vm, args, n, 2, who, "min");
@@ -183,7 +183,7 @@ static TVal nm_slider(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_range_slider(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::rangeSlider()";
+    const char *who = "Tphp\\Tui\\Form::rangeSlider()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     float lo = (float)tui_arg_float(vm, args, n, 1, who, "lo");
     float hi = (float)tui_arg_float(vm, args, n, 2, who, "hi");
@@ -197,7 +197,7 @@ static TVal nm_range_slider(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_ruler_slider(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::rulerSlider()";
+    const char *who = "Tphp\\Tui\\Form::rulerSlider()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     float v = (float)tui_arg_float(vm, args, n, 1, who, "value");
     float lo = (float)tui_arg_float(vm, args, n, 2, who, "min");
@@ -207,7 +207,7 @@ static TVal nm_ruler_slider(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_histogram_slider(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::histogramSlider()";
+    const char *who = "Tphp\\Tui\\Form::histogramSlider()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     int bc = 0;
     double *bins_d = tui_floats(vm, &args[1], who, "bins", &bc);
@@ -219,7 +219,7 @@ static TVal nm_histogram_slider(VM *vm, void *self, TVal *args, int n) {
     tui_arr_free(bins_d);
     if (bc < 2) {
         tui_arr_free(bins);
-        RAISE(vm, "ValueError", "%s(): bins needs at least 2 entries", who);
+        RAISE(vm, "ValueError", "%s: bins needs at least 2 entries", who);
     }
     float lo = (float)tui_arg_float(vm, args, n, 2, who, "lo");
     float hi = (float)tui_arg_float(vm, args, n, 3, who, "hi");
@@ -235,7 +235,7 @@ static TVal nm_histogram_slider(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_knob(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::knob()";
+    const char *who = "Tphp\\Tui\\Form::knob()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     float v = (float)tui_arg_float(vm, args, n, 1, who, "value");
     float lo = (float)tui_arg_float(vm, args, n, 2, who, "min");
@@ -245,7 +245,7 @@ static TVal nm_knob(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_fader(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::fader()";
+    const char *who = "Tphp\\Tui\\Form::fader()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     float v = (float)tui_arg_float(vm, args, n, 1, who, "value");
     float lo = (float)tui_arg_float(vm, args, n, 2, who, "min");
@@ -255,7 +255,7 @@ static TVal nm_fader(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_scrub(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::scrub()";
+    const char *who = "Tphp\\Tui\\Form::scrub()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     float v = (float)tui_arg_float(vm, args, n, 1, who, "value");
     float lo = (float)tui_arg_float(vm, args, n, 2, who, "min");
@@ -265,7 +265,7 @@ static TVal nm_scrub(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_level_meter(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::levelMeter()";
+    const char *who = "Tphp\\Tui\\Form::levelMeter()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int lc = 0;
     double *lv = tui_floats(vm, &args[1], who, "levels", &lc);
@@ -284,7 +284,7 @@ static TVal nm_level_meter(VM *vm, void *self, TVal *args, int n) {
 /* ---- 勾选/选择（返回新值/新索引） ---- */
 
 static TVal nm_checkbox(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::checkbox()";
+    const char *who = "Tphp\\Tui\\Form::checkbox()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     bool v = tui_arg_bool(vm, args, n, 1, who, "value");
     cui_checkbox_ex(tui_need_ui(vm, (TObj *)self, who), label, &v, NULL);
@@ -292,7 +292,7 @@ static TVal nm_checkbox(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_radio(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::radio()";
+    const char *who = "Tphp\\Tui\\Form::radio()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     int cur = (int)tui_arg_int(vm, args, n, 1, who, "current");
     int option = (int)tui_arg_int(vm, args, n, 2, who, "option");
@@ -302,7 +302,7 @@ static TVal nm_radio(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_radio_group(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::radioGroup()";
+    const char *who = "Tphp\\Tui\\Form::radioGroup()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int ic = 0;
     char **items = tui_strs(vm, &args[1], who, "items", &ic);
@@ -314,7 +314,7 @@ static TVal nm_radio_group(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_segmented(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::segmented()";
+    const char *who = "Tphp\\Tui\\Form::segmented()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int ic = 0;
     char **items = tui_strs(vm, &args[1], who, "items", &ic);
@@ -326,7 +326,7 @@ static TVal nm_segmented(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_chip(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::chip()";
+    const char *who = "Tphp\\Tui\\Form::chip()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     bool v = tui_arg_bool(vm, args, n, 1, who, "selected");
     cui_chip_ex(tui_need_ui(vm, (TObj *)self, who), label, &v, NULL);
@@ -334,24 +334,24 @@ static TVal nm_chip(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_rating(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::rating()";
+    const char *who = "Tphp\\Tui\\Form::rating()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int v = (int)tui_arg_int(vm, args, n, 1, who, "value");
     int64_t max = tui_arg_int(vm, args, n, 2, who, "max");
     if (max < 1 || max > 20)
-        RAISE(vm, "ValueError", "%s(): max must be in 1..20", who);
+        RAISE(vm, "ValueError", "%s: max must be in 1..20", who);
     cui_rating(tui_need_ui(vm, (TObj *)self, who), id, &v, (int)max);
     return TV_INT(v);
 }
 
 static TVal nm_toggle_group(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::toggleGroup()";
+    const char *who = "Tphp\\Tui\\Form::toggleGroup()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int lc = 0;
     char **labels = tui_strs(vm, &args[1], who, "labels", &lc);
     if (n <= 2 || args[2].t != T_ARR) {
         tui_strs_free(labels, lc);
-        RAISE(vm, "TypeError", "%s(): argument values must be of type array, %s given",
+        RAISE(vm, "TypeError", "%s: argument values must be of type array, %s given",
               who, n <= 2 ? "null" : tphp_val_type_name(args[2]));
     }
     int vc = 0;
@@ -359,7 +359,7 @@ static TVal nm_toggle_group(VM *vm, void *self, TVal *args, int n) {
     if (vc != lc) {
         tui_strs_free(labels, lc);
         tui_arr_free(values);
-        RAISE(vm, "ValueError", "%s(): values length (%d) must match labels (%d)",
+        RAISE(vm, "ValueError", "%s: values length (%d) must match labels (%d)",
               who, vc, lc);
     }
     cui_toggle_group_ex(tui_need_ui(vm, (TObj *)self, who), id,
@@ -372,7 +372,7 @@ static TVal nm_toggle_group(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_select(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::select()";
+    const char *who = "Tphp\\Tui\\Form::select()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int ic = 0;
     char **items = tui_strs(vm, &args[1], who, "items", &ic);
@@ -384,13 +384,13 @@ static TVal nm_select(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_multi_select(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::multiSelect()";
+    const char *who = "Tphp\\Tui\\Form::multiSelect()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int ic = 0;
     char **items = tui_strs(vm, &args[1], who, "items", &ic);
     if (n <= 2 || args[2].t != T_ARR) {
         tui_strs_free(items, ic);
-        RAISE(vm, "TypeError", "%s(): argument selected must be of type array, %s given",
+        RAISE(vm, "TypeError", "%s: argument selected must be of type array, %s given",
               who, n <= 2 ? "null" : tphp_val_type_name(args[2]));
     }
     int sc = 0;
@@ -398,7 +398,7 @@ static TVal nm_multi_select(VM *vm, void *self, TVal *args, int n) {
     if (sc != ic) {
         tui_strs_free(items, ic);
         tui_arr_free(sel);
-        RAISE(vm, "ValueError", "%s(): selected length (%d) must match items (%d)",
+        RAISE(vm, "ValueError", "%s: selected length (%d) must match items (%d)",
               who, sc, ic);
     }
     cui_multi_select_ex(tui_need_ui(vm, (TObj *)self, who), id,
@@ -416,7 +416,7 @@ static TVal nm_multi_select(VM *vm, void *self, TVal *args, int n) {
 static cui_date date_of(VM *vm, TVal *v, const char *who, const char *pname) {
     cui_date d = { 0, 0, 0 };
     if (v->t != T_ARR)
-        RAISE(vm, "TypeError", "%s(): argument %s must be a [year,month,day] array, %s given",
+        RAISE(vm, "TypeError", "%s: argument %s must be a [year,month,day] array, %s given",
               who, pname, tphp_val_type_name(*v));
     TArr *a = (TArr *)v->u.p;
     int64_t vals[3] = { 0, 0, 0 };
@@ -425,11 +425,11 @@ static cui_date date_of(VM *vm, TVal *v, const char *who, const char *pname) {
         TVal e = a->data[i];
         if (e.t == T_UNDEF) continue;
         if (e.t != T_INT)
-            RAISE(vm, "TypeError", "%s(): %s[%d] must be an int", who, pname, k);
+            RAISE(vm, "TypeError", "%s: %s[%d] must be an int", who, pname, k);
         vals[k++] = e.u.i;
     }
     if (k != 3)
-        RAISE(vm, "ValueError", "%s(): %s must have exactly 3 elements [y,m,d]",
+        RAISE(vm, "ValueError", "%s: %s must have exactly 3 elements [y,m,d]",
               who, pname);
     d.year = (int)vals[0];
     d.month = (int)vals[1];
@@ -454,7 +454,7 @@ static TVal nm_date_today(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_calendar(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::calendar()";
+    const char *who = "Tphp\\Tui\\Form::calendar()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     cui_date d = date_of(vm, &args[1], who, "date");
     cui_calendar(tui_need_ui(vm, (TObj *)self, who), id, &d);
@@ -462,7 +462,7 @@ static TVal nm_calendar(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_date_picker(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::datePicker()";
+    const char *who = "Tphp\\Tui\\Form::datePicker()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     cui_date d = date_of(vm, &args[1], who, "date");
     cui_date_picker_ex(tui_need_ui(vm, (TObj *)self, who), id, &d, NULL);
@@ -471,7 +471,7 @@ static TVal nm_date_picker(VM *vm, void *self, TVal *args, int n) {
 
 /* start/end 各 [y,m,d]；返回 [start, end] 嵌套数组 */
 static TVal nm_date_range_picker(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::dateRangePicker()";
+    const char *who = "Tphp\\Tui\\Form::dateRangePicker()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     cui_date_range r;
     r.start = date_of(vm, &args[1], who, "start");
@@ -484,14 +484,14 @@ static TVal nm_date_range_picker(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_range_calendar(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::rangeCalendar()";
+    const char *who = "Tphp\\Tui\\Form::rangeCalendar()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     cui_date_range r;
     r.start = date_of(vm, &args[1], who, "start");
     r.end = date_of(vm, &args[2], who, "end");
     int64_t months = tui_opt_int(vm, args, n, 3, 1, who, "months");
     if (months < 1 || months > 6)
-        RAISE(vm, "ValueError", "%s(): months must be in 1..6", who);
+        RAISE(vm, "ValueError", "%s: months must be in 1..6", who);
     cui_range_calendar(tui_need_ui(vm, (TObj *)self, who), id, &r, (int)months);
     TArr *a = tarr_new();
     tarr_append(a, date_tv(r.start));
@@ -500,7 +500,7 @@ static TVal nm_range_calendar(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_time_picker(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::timePicker()";
+    const char *who = "Tphp\\Tui\\Form::timePicker()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int hour = (int)tui_arg_int(vm, args, n, 1, who, "hour");
     int minute = (int)tui_arg_int(vm, args, n, 2, who, "minute");
@@ -512,7 +512,7 @@ static TVal nm_time_picker(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_time_dial(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::timeDial()";
+    const char *who = "Tphp\\Tui\\Form::timeDial()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int hour = (int)tui_arg_int(vm, args, n, 1, who, "hour");
     int minute = (int)tui_arg_int(vm, args, n, 2, who, "minute");
@@ -526,7 +526,7 @@ static TVal nm_time_dial(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_wheel_picker(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::wheelPicker()";
+    const char *who = "Tphp\\Tui\\Form::wheelPicker()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int ic = 0;
     char **items = tui_strs(vm, &args[1], who, "items", &ic);
@@ -539,7 +539,7 @@ static TVal nm_wheel_picker(VM *vm, void *self, TVal *args, int n) {
 
 /* color：0xRRGGBBAA 整数往返 */
 static TVal nm_color_picker(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::colorPicker()";
+    const char *who = "Tphp\\Tui\\Form::colorPicker()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int64_t c = tui_arg_int(vm, args, n, 1, who, "color");
     uint32_t u = (uint32_t)c;
@@ -555,7 +555,7 @@ static TVal nm_color_picker(VM *vm, void *self, TVal *args, int n) {
 
 /* moneyInput：金额往返（double） */
 static TVal nm_money_input(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::moneyInput()";
+    const char *who = "Tphp\\Tui\\Form::moneyInput()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     double v = tui_arg_float(vm, args, n, 1, who, "value");
     cui_money_input_ex(tui_need_ui(vm, (TObj *)self, who), id, &v, NULL);

@@ -3,7 +3,7 @@
  * tphp/tui 阶段 B 探针：6 类 API + 域访问器
  * 验证 $app->layout()/form()/widgets()/charts()/content() 返回对应域对象，
  * 且其上的原生方法可用（impl 复用、子对象带 app 句柄），缓存身份稳定。
- * 旧 API（$app->form()->input() 等）由既有 7 冒烟覆盖，本探针不重复。
+ * 域方法的基础调用形态由既有 7 冒烟覆盖，本探针不重复。
  * 运行：build\tphp.exe run tests\smoke-domain.php
  */
 $fail = 0;
@@ -59,9 +59,15 @@ check(is_array($md), "content-markdown");
 $widgets->badge("new");
 check(true, "widgets-badge");
 
-// 旧 API 仍可用（App 保留全部方法）
-$old = $app->form()->checkbox("旧API", true);
-check($old === true, "old-api-checkbox");
+// 链式访问器（缓存同一实例）上的方法可用
+$old = $app->form()->checkbox("链式", true);
+check($old === true, "form-chained-checkbox");
+
+// App 已精简：域方法不可在 App 上直接调用（应抛 Error）
+$noOld = false;
+try { $app->checkbox("直接调用", true); }
+catch (\Error $e) { $noOld = true; }
+check($noOld, "app-no-domain-method");
 
 $app->quit();
 check($app->frame() === false, "loop-stopped");

@@ -24,7 +24,7 @@
 #include <stdint.h>
 
 /* ---- 参数读取（必需参数：缺失抛 ArgumentCountError，类型不符抛 TypeError） ----
- * who   = 完整方法名（错误消息前缀，如 "Tphp\\Tui\\App::button()"）
+ * who   = 完整方法名（错误消息前缀，如 "Tphp\\Tui\\Widgets::button()"）
  * pname = 参数名（如 "variant"，用于类型错误消息） */
 const char *tui_arg_str(VM *vm, TVal *args, int n, int i, const char *who);
 int64_t tui_arg_int(VM *vm, TVal *args, int n, int i, const char *who,

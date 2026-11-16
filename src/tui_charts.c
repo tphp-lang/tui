@@ -32,7 +32,7 @@ static TVal *row_get(TArr *row, const char *k) {
 
 static TArr *rows_of(VM *vm, TVal *v, const char *who, const char *pname) {
     if (v->t != T_ARR)
-        RAISE(vm, "TypeError", "%s(): argument %s must be of type array, %s given",
+        RAISE(vm, "TypeError", "%s: argument %s must be of type array, %s given",
               who, pname, tphp_val_type_name(*v));
     return (TArr *)v->u.p;
 }
@@ -48,7 +48,7 @@ static char *dup_s(const char *s) {
 static TArr *row_arr(VM *vm, TVal e, const char *who, const char *pname, int pos) {
     if (e.t != T_ARR)
         RAISE(vm, "TypeError",
-              "%s(): array element %d of argument %s must be of type array, %s given",
+              "%s: array element %d of argument %s must be of type array, %s given",
               who, pos, pname, tphp_val_type_name(e));
     return (TArr *)e.u.p;
 }
@@ -57,7 +57,7 @@ static const char *row_req_str(VM *vm, TArr *row, const char *k,
                                const char *who, const char *pname, int pos) {
     TVal *v = row_get(row, k);
     if (!v || v->t != T_STR)
-        RAISE(vm, "TypeError", "%s(): %s[%d][\"%s\"] must be a string",
+        RAISE(vm, "TypeError", "%s: %s[%d][\"%s\"] must be a string",
               who, pname, pos - 1, k);
     return tstr_val((TStr *)v->u.p);
 }
@@ -67,7 +67,7 @@ static const char *row_opt_str(VM *vm, TArr *row, const char *k, const char *who
     TVal *v = row_get(row, k);
     if (!v || v->t == T_NULL) return NULL;
     if (v->t != T_STR)
-        RAISE(vm, "TypeError", "%s(): %s[%d][\"%s\"] must be a string",
+        RAISE(vm, "TypeError", "%s: %s[%d][\"%s\"] must be a string",
               who, pname, pos - 1, k);
     return tstr_val((TStr *)v->u.p);
 }
@@ -76,7 +76,7 @@ static double row_req_num(VM *vm, TArr *row, const char *k,
                           const char *who, const char *pname, int pos) {
     TVal *v = row_get(row, k);
     if (!v || (v->t != T_INT && v->t != T_FLOAT))
-        RAISE(vm, "TypeError", "%s(): %s[%d][\"%s\"] must be numeric",
+        RAISE(vm, "TypeError", "%s: %s[%d][\"%s\"] must be numeric",
               who, pname, pos - 1, k);
     return tval_to_float(*v);
 }
@@ -86,7 +86,7 @@ static double row_opt_num(VM *vm, TArr *row, const char *k, double def,
     TVal *v = row_get(row, k);
     if (!v || v->t == T_NULL) return def;
     if (v->t != T_INT && v->t != T_FLOAT)
-        RAISE(vm, "TypeError", "%s(): %s[%d][\"%s\"] must be numeric",
+        RAISE(vm, "TypeError", "%s: %s[%d][\"%s\"] must be numeric",
               who, pname, pos - 1, k);
     return tval_to_float(*v);
 }
@@ -96,7 +96,7 @@ static int64_t row_opt_int(VM *vm, TArr *row, const char *k, int64_t def,
     TVal *v = row_get(row, k);
     if (!v || v->t == T_NULL) return def;
     if (v->t != T_INT)
-        RAISE(vm, "TypeError", "%s(): %s[%d][\"%s\"] must be an int",
+        RAISE(vm, "TypeError", "%s: %s[%d][\"%s\"] must be an int",
               who, pname, pos - 1, k);
     return v->u.i;
 }
@@ -106,7 +106,7 @@ static bool row_opt_bool(VM *vm, TArr *row, const char *k, bool def,
     TVal *v = row_get(row, k);
     if (!v || v->t == T_NULL) return def;
     if (v->t != T_TRUE && v->t != T_FALSE)
-        RAISE(vm, "TypeError", "%s(): %s[%d][\"%s\"] must be a bool",
+        RAISE(vm, "TypeError", "%s: %s[%d][\"%s\"] must be a bool",
               who, pname, pos - 1, k);
     return v->t == T_TRUE;
 }
@@ -118,7 +118,7 @@ static cui_color row_opt_color(VM *vm, TArr *row, const char *k,
     TVal *v = row_get(row, k);
     if (!v || v->t == T_NULL) return c;
     if (v->t != T_INT)
-        RAISE(vm, "TypeError", "%s(): %s[%d][\"%s\"] must be an int color",
+        RAISE(vm, "TypeError", "%s: %s[%d][\"%s\"] must be an int color",
               who, pname, pos - 1, k);
     uint32_t u = (uint32_t)v->u.i;
     c.r = (uint8_t)((u >> 24) & 0xFF);
@@ -166,7 +166,7 @@ static void chart_opts_build(VM *vm, TVal *v, chart_opts_hold *h,
     memset(h, 0, sizeof *h);
     if (!v) return;
     if (v->t != T_ARR)
-        RAISE(vm, "TypeError", "%s(): argument opts must be of type array, %s given",
+        RAISE(vm, "TypeError", "%s: argument opts must be of type array, %s given",
               who, tphp_val_type_name(*v));
     TArr *r = (TArr *)v->u.p;
     TVal *lv = row_get(r, "labels");
@@ -176,33 +176,33 @@ static void chart_opts_build(VM *vm, TVal *v, chart_opts_hold *h,
     TVal *fv = row_get(r, "format");
     if (fv) {
         if (fv->t != T_STR)
-            RAISE(vm, "TypeError", "%s(): opts[\"format\"] must be a string", who);
+            RAISE(vm, "TypeError", "%s: opts[\"format\"] must be a string", who);
         h->format = tm_malloc((size_t)((TStr *)fv->u.p)->len + 1);
         memcpy(h->format, ((TStr *)fv->u.p)->c, ((TStr *)fv->u.p)->len + 1);
     }
     TVal *av = row_get(r, "area");
     if (av && av->t != T_TRUE && av->t != T_FALSE)
-        RAISE(vm, "TypeError", "%s(): opts[\"area\"] must be a bool", who);
+        RAISE(vm, "TypeError", "%s: opts[\"area\"] must be a bool", who);
     TVal *nv = row_get(r, "no_legend");
     if (nv && nv->t != T_TRUE && nv->t != T_FALSE)
-        RAISE(vm, "TypeError", "%s(): opts[\"no_legend\"] must be a bool", who);
+        RAISE(vm, "TypeError", "%s: opts[\"no_legend\"] must be a bool", who);
     TVal *ng = row_get(r, "no_grid");
     if (ng && ng->t != T_TRUE && ng->t != T_FALSE)
-        RAISE(vm, "TypeError", "%s(): opts[\"no_grid\"] must be a bool", who);
+        RAISE(vm, "TypeError", "%s: opts[\"no_grid\"] must be a bool", who);
     TVal *sv = row_get(r, "stacked");
     if (sv && sv->t != T_TRUE && sv->t != T_FALSE)
-        RAISE(vm, "TypeError", "%s(): opts[\"stacked\"] must be a bool", who);
+        RAISE(vm, "TypeError", "%s: opts[\"stacked\"] must be a bool", who);
     TVal *sm = row_get(r, "smooth");
     if (sm && sm->t != T_TRUE && sm->t != T_FALSE)
-        RAISE(vm, "TypeError", "%s(): opts[\"smooth\"] must be a bool", who);
+        RAISE(vm, "TypeError", "%s: opts[\"smooth\"] must be a bool", who);
     TVal *hv = row_get(r, "height");
     if (hv && hv->t != T_INT && hv->t != T_FLOAT)
-        RAISE(vm, "TypeError", "%s(): opts[\"height\"] must be numeric", who);
+        RAISE(vm, "TypeError", "%s: opts[\"height\"] must be numeric", who);
     TVal *mn = row_get(r, "min");
     TVal *mx = row_get(r, "max");
     if ((mn && mn->t != T_INT && mn->t != T_FLOAT) ||
         (mx && mx->t != T_INT && mx->t != T_FLOAT))
-        RAISE(vm, "TypeError", "%s(): opts min/max must be numeric", who);
+        RAISE(vm, "TypeError", "%s: opts min/max must be numeric", who);
     h->o.area = av && av->t == T_TRUE;
     h->o.no_legend = nv && nv->t == T_TRUE;
     h->o.no_grid = ng && ng->t == T_TRUE;
@@ -249,7 +249,7 @@ static void series_fill(VM *vm, TArr *rows, const char *pname, const char *who,
         row_opt_str(vm, row, "name", who, pname, pos + 1);
         TVal *vv = row_get(row, "values");
         if (!vv)
-            RAISE(vm, "TypeError", "%s(): %s[%d][\"values\"] is required",
+            RAISE(vm, "TypeError", "%s: %s[%d][\"values\"] is required",
                   who, pname, pos);
         int n = 0;
         double *d = tui_floats(vm, vv, who, pname, &n);   /* 元素类型在此校验 */
@@ -334,7 +334,7 @@ static void items_free(cui_viz_item *items, char **labels, int n) {
 /* ---- 各图表方法 ---- */
 
 static TVal nm_line_chart(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::lineChart()";
+    const char *who = "Tphp\\Tui\\Charts::lineChart()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "series");
     cui_series *s = NULL; char **names = NULL; float **vals = NULL;
@@ -350,7 +350,7 @@ static TVal nm_line_chart(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_bar_chart(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::barChart()";
+    const char *who = "Tphp\\Tui\\Charts::barChart()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "series");
     cui_series *s = NULL; char **names = NULL; float **vals = NULL;
@@ -366,7 +366,7 @@ static TVal nm_bar_chart(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_donut_chart(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::donutChart()";
+    const char *who = "Tphp\\Tui\\Charts::donutChart()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int vc = 0;
     float *values = flat_floats(vm, &args[1], &vc, who, "values");
@@ -375,7 +375,7 @@ static TVal nm_donut_chart(VM *vm, void *self, TVal *args, int n) {
     if (lc != vc) {
         tui_arr_free(values);
         tui_strs_free(labels, lc);
-        RAISE(vm, "ValueError", "%s(): labels length (%d) must match values (%d)",
+        RAISE(vm, "ValueError", "%s: labels length (%d) must match values (%d)",
               who, lc, vc);
     }
     chart_opts_hold h;
@@ -390,7 +390,7 @@ static TVal nm_donut_chart(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_sparkline(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::sparkline()";
+    const char *who = "Tphp\\Tui\\Charts::sparkline()";
     int vc = 0;
     float *values = flat_floats(vm, &args[0], &vc, who, "values");
     double width = tui_opt_float(vm, args, n, 1, 100, who, "width");
@@ -413,7 +413,7 @@ static TVal nm_sparkline(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_gauge(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::gauge()";
+    const char *who = "Tphp\\Tui\\Charts::gauge()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     double v = tui_arg_float(vm, args, n, 1, who, "value");
     double size = tui_opt_float(vm, args, n, 2, 120, who, "size");
@@ -422,7 +422,7 @@ static TVal nm_gauge(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_radial_gauge(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::radialGauge()";
+    const char *who = "Tphp\\Tui\\Charts::radialGauge()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     double v = tui_arg_float(vm, args, n, 1, who, "value");
     double lo = tui_arg_float(vm, args, n, 2, who, "min");
@@ -434,7 +434,7 @@ static TVal nm_radial_gauge(VM *vm, void *self, TVal *args, int n) {
 
 /* scatter：points=[[x,y],...] 嵌套对；sizes 可选同长 */
 static TVal nm_scatter_chart(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::scatterChart()";
+    const char *who = "Tphp\\Tui\\Charts::scatterChart()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "series");
     int sc = count_rows(rows);
@@ -452,14 +452,14 @@ static TVal nm_scatter_chart(VM *vm, void *self, TVal *args, int n) {
         row_opt_str(vm, row, "name", who, "series", pos + 1);
         TVal *pv = row_get(row, "points");
         if (!pv || pv->t != T_ARR)
-            RAISE(vm, "TypeError", "%s(): series[%d][\"points\"] must be an array "
+            RAISE(vm, "TypeError", "%s: series[%d][\"points\"] must be an array "
                   "of [x,y] pairs", who, pos);
         TArr *pa = (TArr *)pv->u.p;
         for (uint32_t j = 0; j < pa->dused; j++) {
             TVal pe = pa->data[j];
             if (pe.t == T_UNDEF) continue;
             if (pe.t != T_ARR)
-                RAISE(vm, "TypeError", "%s(): series[%d][\"points\"][%u] must be "
+                RAISE(vm, "TypeError", "%s: series[%d][\"points\"][%u] must be "
                       "an [x,y] pair", who, pos, j);
             TArr *pair = (TArr *)pe.u.p;
             int pc = 0;
@@ -468,13 +468,13 @@ static TVal nm_scatter_chart(VM *vm, void *self, TVal *args, int n) {
                 if (v.t == T_UNDEF) continue;
                 if (v.t != T_INT && v.t != T_FLOAT)
                     RAISE(vm, "TypeError",
-                          "%s(): series[%d][\"points\"][%u] elements must be numeric",
+                          "%s: series[%d][\"points\"][%u] elements must be numeric",
                           who, pos, j);
                 pc++;
             }
             if (pc != 2)
                 RAISE(vm, "ValueError",
-                      "%s(): series[%d][\"points\"][%u] must have exactly 2 numbers",
+                      "%s: series[%d][\"points\"][%u] must have exactly 2 numbers",
                       who, pos, j);
         }
         TVal *sv = row_get(row, "sizes");
@@ -530,7 +530,7 @@ static TVal nm_scatter_chart(VM *vm, void *self, TVal *args, int n) {
                 }
                 tm_free(names); tm_free(pts); tm_free(sizes); tm_free(cnts);
                 tm_free(ss);
-                RAISE(vm, "ValueError", "%s(): series[%d] sizes length must match points",
+                RAISE(vm, "ValueError", "%s: series[%d] sizes length must match points",
                       who, k);
             }
         }
@@ -552,7 +552,7 @@ static TVal nm_scatter_chart(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_radar_chart(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::radarChart()";
+    const char *who = "Tphp\\Tui\\Charts::radarChart()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "series");
     int ac = 0;
@@ -568,7 +568,7 @@ static TVal nm_radar_chart(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_heatmap(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::heatmap()";
+    const char *who = "Tphp\\Tui\\Charts::heatmap()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int vc = 0;
     float *values = flat_floats(vm, &args[1], &vc, who, "values");
@@ -576,7 +576,7 @@ static TVal nm_heatmap(VM *vm, void *self, TVal *args, int n) {
     int64_t cols = tui_arg_int(vm, args, n, 3, who, "cols");
     if (rows < 1 || cols < 1 || rows * cols != vc) {
         tui_arr_free(values);
-        RAISE(vm, "ValueError", "%s(): rows*cols (%lld) must equal values count (%d)",
+        RAISE(vm, "ValueError", "%s: rows*cols (%lld) must equal values count (%d)",
               who, (long long)(rows * cols), vc);
     }
     int r = cui_heatmap_ex(tui_need_ui(vm, (TObj *)self, who), id, values,
@@ -586,11 +586,11 @@ static TVal nm_heatmap(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_calendar_heatmap(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::calendarHeatmap()";
+    const char *who = "Tphp\\Tui\\Charts::calendarHeatmap()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     /* start = [y,m,d] */
     if (args[1].t != T_ARR)
-        RAISE(vm, "TypeError", "%s(): argument start must be a [year,month,day] array",
+        RAISE(vm, "TypeError", "%s: argument start must be a [year,month,day] array",
               who);
     TArr *sa = (TArr *)args[1].u.p;
     int64_t sv[3] = { 0, 0, 0 };
@@ -599,11 +599,11 @@ static TVal nm_calendar_heatmap(VM *vm, void *self, TVal *args, int n) {
         TVal e = sa->data[i];
         if (e.t == T_UNDEF) continue;
         if (e.t != T_INT)
-            RAISE(vm, "TypeError", "%s(): start[%d] must be an int", who, sk);
+            RAISE(vm, "TypeError", "%s: start[%d] must be an int", who, sk);
         sv[sk++] = e.u.i;
     }
     if (sk != 3)
-        RAISE(vm, "ValueError", "%s(): start must have exactly 3 elements [y,m,d]", who);
+        RAISE(vm, "ValueError", "%s: start must have exactly 3 elements [y,m,d]", who);
     cui_date start = { (int)sv[0], (int)sv[1], (int)sv[2] };
     int vc = 0;
     float *values = flat_floats(vm, &args[2], &vc, who, "values");
@@ -614,7 +614,7 @@ static TVal nm_calendar_heatmap(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_treemap(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::treemap()";
+    const char *who = "Tphp\\Tui\\Charts::treemap()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "items");
     cui_viz_item *items = NULL; char **labels = NULL; int cnt = 0;
@@ -625,7 +625,7 @@ static TVal nm_treemap(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_funnel(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::funnel()";
+    const char *who = "Tphp\\Tui\\Charts::funnel()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "items");
     cui_viz_item *items = NULL; char **labels = NULL; int cnt = 0;
@@ -636,7 +636,7 @@ static TVal nm_funnel(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_sankey(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::sankey()";
+    const char *who = "Tphp\\Tui\\Charts::sankey()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int nc = 0;
     char **nodes = tui_strs(vm, &args[1], who, "nodes", &nc);
@@ -654,7 +654,7 @@ static TVal nm_sankey(VM *vm, void *self, TVal *args, int n) {
         if (f < 0 || f >= nc || t < 0 || t >= nc) {
             tui_strs_free(nodes, nc);
             tm_free(links);
-            RAISE(vm, "ValueError", "%s(): links[%d] from/to out of nodes range",
+            RAISE(vm, "ValueError", "%s: links[%d] from/to out of nodes range",
                   who, pos);
         }
         pos++;
@@ -677,7 +677,7 @@ static TVal nm_sankey(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_waffle(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::waffle()";
+    const char *who = "Tphp\\Tui\\Charts::waffle()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "items");
     cui_viz_item *items = NULL; char **labels = NULL; int cnt = 0;
@@ -688,7 +688,7 @@ static TVal nm_waffle(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_split_bar(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::splitBar()";
+    const char *who = "Tphp\\Tui\\Charts::splitBar()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "items");
     cui_viz_item *items = NULL; char **labels = NULL; int cnt = 0;
@@ -699,7 +699,7 @@ static TVal nm_split_bar(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_bar_list(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::barList()";
+    const char *who = "Tphp\\Tui\\Charts::barList()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "items");
     cui_viz_item *items = NULL; char **labels = NULL; int cnt = 0;
@@ -710,7 +710,7 @@ static TVal nm_bar_list(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_activity_rings(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::activityRings()";
+    const char *who = "Tphp\\Tui\\Charts::activityRings()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "items");
     cui_viz_item *items = NULL; char **labels = NULL; int cnt = 0;
@@ -722,7 +722,7 @@ static TVal nm_activity_rings(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_candlestick(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::candlestick()";
+    const char *who = "Tphp\\Tui\\Charts::candlestick()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "candles");
     int cnt = count_rows(rows);
@@ -734,7 +734,7 @@ static TVal nm_candlestick(VM *vm, void *self, TVal *args, int n) {
     if (lc && lc != cnt) {
         tui_strs_free(labels, lc);
         tm_free(cs);
-        RAISE(vm, "ValueError", "%s(): labels length (%d) must match candles (%d)",
+        RAISE(vm, "ValueError", "%s: labels length (%d) must match candles (%d)",
               who, lc, cnt);
     }
     int pos = 0;
@@ -773,7 +773,7 @@ static TVal nm_candlestick(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_waterfall(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::waterfall()";
+    const char *who = "Tphp\\Tui\\Charts::waterfall()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "requests");
     int cnt = count_rows(rows);
@@ -800,7 +800,7 @@ static TVal nm_waterfall(VM *vm, void *self, TVal *args, int n) {
                 for (int z = 0; z < nstr; z++) tm_free(strs[z]);
                 tm_free(strs);
                 tm_free(reqs);
-                RAISE(vm, "ValueError", "%s(): requests[%d][\"timing\"] has at most "
+                RAISE(vm, "ValueError", "%s: requests[%d][\"timing\"] has at most "
                       "6 entries", who, pos);
             }
         }
@@ -851,7 +851,7 @@ static TVal nm_waterfall(VM *vm, void *self, TVal *args, int n) {
 
 /* dotChart：series=[['values'=>,'name'=>?,'accent'=>?]]，count 取首系列长度 */
 static TVal nm_dot_chart(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::dotChart()";
+    const char *who = "Tphp\\Tui\\Charts::dotChart()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "series");
     int sc = count_rows(rows);
@@ -868,14 +868,14 @@ static TVal nm_dot_chart(VM *vm, void *self, TVal *args, int n) {
         row_opt_str(vm, row, "name", who, "series", pos + 1);
         TVal *vv = row_get(row, "values");
         if (!vv)
-            RAISE(vm, "TypeError", "%s(): series[%d][\"values\"] is required", who, pos);
+            RAISE(vm, "TypeError", "%s: series[%d][\"values\"] is required", who, pos);
         int c = 0;
         double *d = tui_floats(vm, vv, who, "series.values", &c);
         tui_arr_free(d);
         row_opt_bool(vm, row, "accent", false, who, "series", pos + 1);
         if (pos == 0) total = c;
         else if (c != total)
-            RAISE(vm, "ValueError", "%s(): all series must have the same values "
+            RAISE(vm, "ValueError", "%s: all series must have the same values "
                   "length (%d vs %d)", who, c, total);
         pos++;
     }
@@ -907,7 +907,7 @@ static TVal nm_dot_chart(VM *vm, void *self, TVal *args, int n) {
 }
 
 static TVal nm_timeline_item(VM *vm, void *self, TVal *args, int n) {
-    const char *who = "Tphp\\Tui\\App::timelineItem()";
+    const char *who = "Tphp\\Tui\\Charts::timelineItem()";
     const char *title = tui_arg_str(vm, args, n, 0, who);
     cui_timeline_item_ex(tui_need_ui(vm, (TObj *)self, who), title, NULL);
     return TV_NULL;

@@ -33,8 +33,8 @@
 
 #define WHO_CTOR  "Tphp\\Tui\\App::__construct"
 #define WHO_FRAME "Tphp\\Tui\\App::frame()"
-#define WHO_BTN   "Tphp\\Tui\\App::button()"
-#define WHO_TOG   "Tphp\\Tui\\App::toggle()"
+#define WHO_BTN   "Tphp\\Tui\\Widgets::button()"
+#define WHO_TOG   "Tphp\\Tui\\Widgets::toggle()"
 
 /* ---- 域注册占位（各域 .c 定义；Task 2-7 的方法在对应域文件内追加） ---- */
 extern void tui_register_widgets(TClass *cls);
@@ -110,7 +110,7 @@ static TVal nm_app_construct(VM *vm, void *self, TVal *args, int n) {
     if (n >= 4) hidden = tui_arg_bool(vm, args, n, 3, WHO_CTOR, "hidden");
     if (n >= 5) cont = tui_arg_bool(vm, args, n, 4, WHO_CTOR, "continuous");
     if (w <= 0 || h <= 0 || w > 65535 || h > 65535)
-        RAISE(vm, "ValueError", "%s(): width/height must be in 1..65535", WHO_CTOR);
+        RAISE(vm, "ValueError", "%s: width/height must be in 1..65535", WHO_CTOR);
 
     cui_app_desc d;
     memset(&d, 0, sizeof d);
@@ -122,7 +122,7 @@ static TVal nm_app_construct(VM *vm, void *self, TVal *args, int n) {
 
     cui_app *app = cui_app_create(&d);
     if (!app)
-        RAISE(vm, "RuntimeException", "%s(): cannot create a window", WHO_CTOR);
+        RAISE(vm, "RuntimeException", "%s: cannot create a window", WHO_CTOR);
     app_set(o, app);
     return TV_NULL;
 }
@@ -178,7 +178,7 @@ static TVal nm_app_set_size(VM *vm, void *self, TVal *args, int n) {
     int64_t w = tui_arg_int(vm, args, n, 0, who, "width");
     int64_t h = tui_arg_int(vm, args, n, 1, who, "height");
     if (w <= 0 || h <= 0 || w > 65535 || h > 65535)
-        RAISE(vm, "ValueError", "%s(): width/height must be in 1..65535", who);
+        RAISE(vm, "ValueError", "%s: width/height must be in 1..65535", who);
     cui_app_set_size(tui_need_app(vm, (TObj *)self, who), (int)w, (int)h);
     return TV_NULL;
 }
@@ -301,7 +301,7 @@ static TVal nm_button(VM *vm, void *self, TVal *args, int n) {
     int64_t variant = tui_opt_enum(vm, args, n, 1, 0, WHO_BTN, "variant",
                                    TUI_LC_BUTTON_VARIANT);
     if (variant < 0 || variant > 6)   /* cui_button_variant 0..6 */
-        RAISE(vm, "ValueError", "%s(): variant must be in 0..6", WHO_BTN);
+        RAISE(vm, "ValueError", "%s: variant must be in 0..6", WHO_BTN);
     cui_button_opts o;
     memset(&o, 0, sizeof o);
     o.variant = (cui_button_variant)variant;
