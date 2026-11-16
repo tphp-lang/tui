@@ -5,8 +5,8 @@
 `Charts`/`Content`，共 313 个组件方法 + 5 个域访问器（覆盖矩阵与排除清单见
 [doc/coverage.md](doc/coverage.md)，逐方法参数见 [doc/API.md](doc/API.md)）。
 
-> 域方法经 `$app->form()` / `$app->layout()` 等访问器取得，**不再挂在 `App` 上**。
-> 拆分过程与决策见 [doc/refactor-plan.md](doc/refactor-plan.md)。
+> 域方法经 `$app->form()` / `$app->layout()` 等访问器取得，**不再挂在 `App` 上**
+> （旧的单类 API 已移除，域方法报错的 `who` 前缀按所属域类显示）。
 
 ## 链入
 
