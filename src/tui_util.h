@@ -35,6 +35,24 @@ bool tui_arg_bool(VM *vm, TVal *args, int n, int i, const char *who,
 double tui_arg_float(VM *vm, TVal *args, int n, int i, const char *who,
                      const char *pname);
 
+/* ---- tui 枚举类的小写 FQCN（各域文件共享；tui_arg_enum 按名查表） ---- */
+#define TUI_LC_BUTTON_VARIANT "tphp\\tui\\buttonvariant"
+#define TUI_LC_FONT_ROLE      "tphp\\tui\\fontrole"
+
+/* ---- 枚举 case 读取（Tphp\Tui\* 枚举类；兼容历史 int 传参） ----
+ * enum_lc = 枚举类 FQCN 小写（如 "tphp\\tui\\buttonvariant"）。按名查表而
+ * 非缓存 TClass*：worker 线程的类表是克隆的，静态指针会指到 master 副本。
+ * 接受：T_OBJ 且属于该枚举的 case 单例 → 取 backing int；
+ *       或 T_INT（旧 API 兼容，平滑迁移）；
+ * 其余抛 TypeError，错误消息带枚举名（"must be of type Tphp\Tui\ButtonVariant"）。
+ * unit enum（无 backing）抛 TypeError——tui 的枚举都是 backed int。 */
+int64_t tui_arg_enum(VM *vm, TVal *args, int n, int i, const char *who,
+                     const char *pname, const char *enum_lc);
+
+/* 同上，可选参：缺省返回 def。 */
+int64_t tui_opt_enum(VM *vm, TVal *args, int n, int i, int64_t def,
+                     const char *who, const char *pname, const char *enum_lc);
+
 /* ---- 可选参数：缺省（n <= i）返回给定默认值；给了但类型不对抛 TypeError ---- */
 int64_t tui_opt_int(VM *vm, TVal *args, int n, int i, int64_t def,
                     const char *who, const char *pname);
@@ -50,6 +68,17 @@ double tui_opt_float(VM *vm, TVal *args, int n, int i, double def,
 cui_app *tui_app_of(TObj *o);                    /* 取句柄；已销毁返回 NULL */
 cui_app *tui_need_app(VM *vm, TObj *o, const char *who);  /* NULL 则抛 Error */
 cui_ctx *tui_need_ui(VM *vm, TObj *o, const char *who);   /* 同上，取绘制上下文 */
+
+/* ---- SCOPE_IF 失配检测（阶段 A）----
+ * 各域导出本域未闭合的 begin 名（PHP 侧 <name>Begin），全闭合返回 NULL。
+ * tui_scopeif_unclosed 汇总所有域；frame() 入口调用，有残留抛 Error。
+ * 与 g_*_on 守卫共用同一批标记，不另建计数。 */
+const char *tui_layout_scopeif_unclosed(void);
+const char *tui_content_scopeif_unclosed(void);
+void tui_layout_scopeif_clear(void);
+void tui_content_scopeif_clear(void);
+const char *tui_scopeif_unclosed(void);
+void tui_scopeif_clear(void);   /* destroy 时清残留，避免污染下一个 App 实例 */
 
 /* ---- 类注册（teb 同款模式；tui_cls_new/add_ctor/add_prop 留在 tui.c） ---- */
 void tui_cls_add_native(TClass *cls, const char *name, void *fn, bool is_static);

@@ -1,7 +1,7 @@
 # tphp/tui 覆盖矩阵与约定
 
 对照 `cui/include/cui/cui.h`（CUI 1.4.0）核对：每个组件级 `CUI_API …(cui_ctx*)` 入口
-要么有对应 PHP 方法（README 分组表全量列出，共 310 个），要么在下方排除清单。
+要么有对应 PHP 方法（README 分组表全量列出，共 314 个），要么在下方排除清单。
 核对方式：按 cui.h 章节逐节对照（抽查脚本口径：`tui_cls_add_native` 注册名 vs 章节入口）。
 
 ## 1. 覆盖矩阵（按 cui.h 章节）
@@ -39,7 +39,7 @@
 | CUI 入口 | 理由 |
 |---|---|
 | `cui_begin_frame/end_frame/set_renderer/set_viewport/needs_redraw/request_redraw/time/delta/frame_count/destroy(ctx)` | 帧循环与渲染内部，由 `frame()`/`quit()`/`destroy()` 与 App 内部持有 |
-| `cui_font_load_file/load_face/set_role/add_fallback/measure_text` 等字体度量底层 | 底层排版接口，组件路径自动使用主题字体；后续按需求增量 |
+| `cui_font_load_face/measure_text` 等字体度量底层 | 底层排版接口；**加载面已覆盖**：`fontLoad`/`fontLoadSystem`/`fontSetRole`/`fontAddFallback`（CJK 支持，见 README「中文（CJK）显示」）。measure_text 仍不封装 |
 | `cui_set_platform/set_strings/token_color/color_of/theme_get` | 平台/主题只读或底层查询；主题写入已覆盖（setTheme/setAccent），读取走 theme_get 属内部状态 |
 | `cui_make_id/last_id/get_rect/push_id/pop_id/push_disabled/…` | 通用 ID/栈内部件；`lastRect()` 已作为测试面单独暴露（`get_rect` 需要内部 id 哈希，不封装） |
 | `cui_input_*` 的原始事件泵、`cui_dropped_file` 单项读取 | 已通过 `simulate*` 与 `droppedFiles()` 覆盖应用面 |

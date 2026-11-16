@@ -13,6 +13,7 @@
 #include <cui/cui_render.h>
 
 #include <stdio.h>
+#include <stdlib.h>   /* getenv：系统字体探测 */
 #include <string.h>
 
 #define RAISE(vm, cls, ...) tphp_vm_raise(vm, cls, __VA_ARGS__)
@@ -235,9 +236,117 @@ static TVal nm_last_rect(VM *vm, void *self, TVal *args, int n) {
     return TV_ARR(a);
 }
 
+/* ---- 字体：CJK 字形加载 ----
+ * 内嵌的 Inter/Geist 是拉丁子集（实测汉字覆盖率 0/20992），汉字命中 .notdef
+ * 渲染成豆腐块。CUI 的 cui__find_glyph 在 fallback 链走完后会遍历 ui->fonts[]
+ * 全部已加载字体，所以只要把一个含 CJK 字形的字体装进 ui->fonts[]，中文即可
+ * 显示——不必改内嵌字体。
+ *
+ * fontLoad(path)            → 加载 .ttf/.otf/.ttc（ttc 取第 0 个 face），返回 id
+ * fontLoadSystem([path])    → 按平台探测常见 CJK 系统字体并加载（失败返回 -1）
+ * fontSetRole(role, font)   → 让某个 role（FontRole::Body 等）改用该字体
+ * fontAddFallback(f, fb)    → f 缺字时回退到 fb
+ * 顺序建议：$f = fontLoadSystem(); fontAddFallback(FontRole::Body, $f);  逐个 role 挂。 */
+
+static TVal nm_font_load(VM *vm, void *self, TVal *args, int n) {
+    const char *who = "Tphp\\Tui\\App::fontLoad()";
+    const char *path = tui_arg_str(vm, args, n, 0, who);
+    cui_ctx *ui = tui_need_ui(vm, (TObj *)self, who);
+    cui_font f = cui_font_load_file(ui, path);
+    if (f < 0)
+        RAISE(vm, "RuntimeException", "%s(): cannot load font \"%s\"", who, path);
+    return TV_INT((int64_t)f);
+}
+
+/* 各平台常见中文字体候选（按优先级；第一条存在的就用）。
+ * Windows: 微软雅黑（ttc 第 0 face = Regular）→ 黑体 → 等线 → 宋体
+ * macOS:   苹方 → 华文黑体
+ * Linux:   Noto CJK / 文泉驿 / Droid Sans Fallback */
+static const char *font_system_candidates(void) {
+#if defined(_WIN32)
+    static char buf[512];
+    const char *win = getenv("WINDIR");
+    static const char *const rel[] = {
+        "\\Fonts\\msyh.ttc", "\\Fonts\\msyh.ttf", "\\Fonts\\simhei.ttf",
+        "\\Fonts\\Deng.ttf", "\\Fonts\\simsun.ttc",
+        "\\Fonts\\msyhl.ttc", "\\Fonts\\simkai.ttf",
+    };
+    for (size_t i = 0; i < sizeof rel / sizeof rel[0]; i++) {
+        snprintf(buf, sizeof buf, "%s%s", win ? win : "C:\\Windows", rel[i]);
+        FILE *f = fopen(buf, "rb");
+        if (f) { fclose(f); return buf; }
+    }
+    return NULL;
+#elif defined(__APPLE__)
+    static const char *const p[] = {
+        "/System/Library/Fonts/PingFang.ttc",
+        "/System/Library/Fonts/STHeiti Light.ttc",
+        "/Library/Fonts/Arial Unicode.ttf",
+    };
+    for (size_t i = 0; i < sizeof p / sizeof p[0]; i++) {
+        FILE *f = fopen(p[i], "rb");
+        if (f) { fclose(f); return p[i]; }
+    }
+    return NULL;
+#else
+    static const char *const p[] = {
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf",
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+        "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+        "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc",
+    };
+    for (size_t i = 0; i < sizeof p / sizeof p[0]; i++) {
+        FILE *f = fopen(p[i], "rb");
+        if (f) { fclose(f); return p[i]; }
+    }
+    return NULL;
+#endif
+}
+
+/* fontLoadSystem([path])：无参 = 按平台探测；给了 path 就用它。
+ * 加载失败返回 -1（与 cui_font_load_file 一致），不抛——调用方自行决定。 */
+static TVal nm_font_load_system(VM *vm, void *self, TVal *args, int n) {
+    const char *who = "Tphp\\Tui\\App::fontLoadSystem()";
+    cui_ctx *ui = tui_need_ui(vm, (TObj *)self, who);
+    const char *path = n >= 1 ? tui_opt_str(vm, args, n, 0, NULL, who, "path")
+                              : font_system_candidates();
+    if (!path || !path[0]) return TV_INT(-1);
+    return TV_INT((int64_t)cui_font_load_file(ui, path));
+}
+
+static TVal nm_font_set_role(VM *vm, void *self, TVal *args, int n) {
+    const char *who = "Tphp\\Tui\\App::fontSetRole()";
+    int64_t role = tui_arg_enum(vm, args, n, 0, who, "role", TUI_LC_FONT_ROLE);
+    int64_t font = tui_arg_int(vm, args, n, 1, who, "font");
+    if (role < 0 || role > 4)
+        RAISE(vm, "ValueError", "%s(): role must be in 0..4", who);
+    cui_font_set_role(tui_need_ui(vm, (TObj *)self, who),
+                      (cui_font)role, (cui_font)font);
+    return TV_NULL;
+}
+
+static TVal nm_font_add_fallback(VM *vm, void *self, TVal *args, int n) {
+    const char *who = "Tphp\\Tui\\App::fontAddFallback()";
+    /* 首参既是 role（FontRole 枚举）也可直接传 fontLoad() 返回的字体 id */
+    int64_t font = tui_arg_enum(vm, args, n, 0, who, "font", TUI_LC_FONT_ROLE);
+    int64_t fallback = tui_arg_int(vm, args, n, 1, who, "fallback");
+    if (font < 0)
+        RAISE(vm, "ValueError", "%s(): font must be a cui_font id (>= 0)", who);
+    cui_font_add_fallback(tui_need_ui(vm, (TObj *)self, who),
+                          (cui_font)font, (cui_font)fallback);
+    return TV_NULL;
+}
+
 /* ---- 注册 ---- */
 
 void tui_register_app_layer(TClass *cls) {
+    tui_cls_add_native(cls, "fontLoad", (void *)nm_font_load, false);
+    tui_cls_add_native(cls, "fontLoadSystem", (void *)nm_font_load_system, false);
+    tui_cls_add_native(cls, "fontSetRole", (void *)nm_font_set_role, false);
+    tui_cls_add_native(cls, "fontAddFallback", (void *)nm_font_add_fallback, false);
     tui_cls_add_native(cls, "savePng", (void *)nm_save_png, false);
     tui_cls_add_native(cls, "screenshotRgba", (void *)nm_screenshot_rgba, false);
     tui_cls_add_native(cls, "fileDialog", (void *)nm_file_dialog, false);

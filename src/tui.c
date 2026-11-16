@@ -30,6 +30,7 @@
 #include <string.h>
 
 #define RAISE(vm, cls, ...) tphp_vm_raise(vm, cls, __VA_ARGS__)
+
 #define WHO_CTOR  "Tphp\\Tui\\App::__construct"
 #define WHO_FRAME "Tphp\\Tui\\App::frame()"
 #define WHO_BTN   "Tphp\\Tui\\App::button()"
@@ -87,6 +88,15 @@ static TVal nm_app_frame(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
     cui_app *a = tui_need_app(vm, (TObj *)self, WHO_FRAME);
+    /* 阶段 A：上一段若有 SCOPE_IF begin 漏配对 End，node 栈已失衡，
+     * 继续渲染会随机 AV（coverage.md §3）。渲染前检出并抛 Error，不静默。
+     * 先清标记再抛：一次报告、catch 后可恢复，避免重复抛同一错污染后续帧。 */
+    const char *unclosed = tui_scopeif_unclosed();
+    if (unclosed) {
+        tui_scopeif_clear();
+        RAISE(vm, "Error", "%s: unclosed scope from previous frame: %s() without matching End()",
+              WHO_FRAME, unclosed);
+    }
     return cui_app_frame(a) ? TV_TRUE : TV_FALSE;
 }
 
@@ -120,6 +130,7 @@ static TVal nm_app_destroy(VM *vm, void *self, TVal *args, int n) {
     TObj *o = (TObj *)self;
     cui_app *a = tui_app_of(o);
     if (a) {
+        tui_scopeif_clear();      /* 清 SCOPE_IF 残留，避免污染下一实例 */
         cui_app_destroy(a);
         app_set(o, NULL);
     }
@@ -130,6 +141,7 @@ static TVal nm_app_destroy(VM *vm, void *self, TVal *args, int n) {
 static void app_native_dtor(TObj *o) {
     cui_app *a = tui_app_of(o);
     if (a) {
+        tui_scopeif_clear();
         cui_app_destroy(a);
         app_set(o, NULL);
     }
@@ -218,7 +230,8 @@ static TVal nm_label(VM *vm, void *self, TVal *args, int n) {
 
 static TVal nm_button(VM *vm, void *self, TVal *args, int n) {
     const char *label = tui_arg_str(vm, args, n, 0, WHO_BTN);
-    int64_t variant = n >= 2 ? tui_arg_int(vm, args, n, 1, WHO_BTN, "variant") : 0;
+    int64_t variant = tui_opt_enum(vm, args, n, 1, 0, WHO_BTN, "variant",
+                                   TUI_LC_BUTTON_VARIANT);
     if (variant < 0 || variant > 6)   /* cui_button_variant 0..6 */
         RAISE(vm, "ValueError", "%s(): variant must be in 0..6", WHO_BTN);
     cui_button_opts o;
@@ -270,6 +283,59 @@ static void tui_cls_add_prop(TClass *cls, const char *name) {
     cls->n_props++;
 }
 
+/* ---- 枚举类（backed int）----
+ * 运行时的枚举实例就是 TObj，语义全部由 cls->kind==CK_ENUM + cls->cases[]
+ * 驱动（vm.c 的 ::cases/::from/::tryFrom、C::Case、->name/->value 分支）。
+ * 单例由 class.c 的 ClsRt.case_objs 惰性创建并 addref，这里只填静态模板。
+ * 两个枚举共用本函数，避免重复机械。 */
+typedef struct { const char *name; int64_t val; } TuiEnumCase;
+
+static TClass *tui_register_enum(const char *fqcn,
+                                 const TuiEnumCase *cases, int n) {
+    TClass *cls = tui_cls_new(fqcn);
+    cls->kind = CK_ENUM;
+    cls->backed = true;
+    cls->backing_type = T_INT;
+    cls->cases = tm_malloc(sizeof(TEnumCase) * (size_t)n);
+    memset(cls->cases, 0, sizeof(TEnumCase) * (size_t)n);
+    for (int i = 0; i < n; i++) {
+        cls->cases[i].name = tstr_intern(cases[i].name, strlen(cases[i].name));
+        cls->cases[i].backing = TV_INT(cases[i].val);
+        cls->cases[i].obj = NULL;          /* 单例惰性建（ClsRt 侧表） */
+    }
+    cls->n_cases = n;
+    tphp_class_register_compile(cls);
+    return cls;
+}
+
+/* cui_button_variant（cui.h）：button($label, $variant) 的取值 */
+static void tui_register_button_variant(void) {
+    static const TuiEnumCase cases[] = {
+        { "Default",   0 },
+        { "Secondary", 1 },
+        { "Primary",   2 },
+        { "Outline",   3 },
+        { "Ghost",     4 },
+        { "Danger",    5 },
+        { "Link",      6 },
+    };
+    tui_register_enum("Tphp\\Tui\\ButtonVariant", cases,
+                      (int)(sizeof cases / sizeof cases[0]));
+}
+
+/* cui_font role（cui.h CUI_FONT_*）：fontSetRole/fontAddFallback 的 role 取值 */
+static void tui_register_font_role(void) {
+    static const TuiEnumCase cases[] = {
+        { "Body",    0 },   /* Inter Regular */
+        { "Medium",  1 },   /* Inter Medium  */
+        { "Display", 2 },   /* Geist Medium  */
+        { "Mono",    3 },   /* Geist Mono    */
+        { "Icons",   4 },   /* Lucide        */
+    };
+    tui_register_enum("Tphp\\Tui\\FontRole", cases,
+                      (int)(sizeof cases / sizeof cases[0]));
+}
+
 static void tui_register_app_class(void) {
     TClass *cls = tui_cls_new("Tphp\\Tui\\App");
     tui_cls_add_prop(cls, "app");
@@ -306,13 +372,8 @@ static void tui_register_app_class(void) {
 
 void tphp_ext_tphp_tui_init(void) {
     tphp_ext_reg_const_str("Tphp\\Tui\\VERSION", "0.1.0");
-    /* cui_button_variant（cui.h）：PHP 侧 button($label, $variant) 用 */
-    tphp_ext_reg_const_int("Tphp\\Tui\\BUTTON_DEFAULT", 0);
-    tphp_ext_reg_const_int("Tphp\\Tui\\BUTTON_SECONDARY", 1);
-    tphp_ext_reg_const_int("Tphp\\Tui\\BUTTON_PRIMARY", 2);
-    tphp_ext_reg_const_int("Tphp\\Tui\\BUTTON_OUTLINE", 3);
-    tphp_ext_reg_const_int("Tphp\\Tui\\BUTTON_GHOST", 4);
-    tphp_ext_reg_const_int("Tphp\\Tui\\BUTTON_DANGER", 5);
-    tphp_ext_reg_const_int("Tphp\\Tui\\BUTTON_LINK", 6);
+    /* 枚举必须先于 App 注册（button/fontSetRole/fontAddFallback 的实参校验） */
+    tui_register_button_variant();
+    tui_register_font_role();
     tui_register_app_class();
 }

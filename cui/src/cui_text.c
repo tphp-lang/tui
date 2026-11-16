@@ -518,6 +518,58 @@ int cui__text_hit(cui_ctx *ui, cui_font font, float size, const char *text, int 
 
 static bool cui__is_space(uint32_t c) { return c == ' ' || c == '\t'; }
 
+/* ---- CJK 断行支持 ----
+ * 中日韩文本不在词间留空格，断行机会落在「字与字之间」。这里按 UAX #14 的
+ * 思路做简化版：ID（ideographic）类字符前后都可断，再加最小限度的禁则
+ * （kinsoku）——句读/收尾括号不得出现在行首，开括号不得留在行尾。
+ * 未做完整 UAX #14 表（那是 1000+ 行数据）；覆盖现代 CJK 排版的主要形态。 */
+static bool cui__is_cjk(uint32_t c) {
+    return (c >= 0x2E80  && c <= 0x2EFF)    /* CJK 部首补充 */
+        || (c >= 0x2F00  && c <= 0x2FDF)    /* 康熙部首 */
+        || (c >= 0x3000  && c <= 0x303F)    /* CJK 符号与标点 */
+        || (c >= 0x3040  && c <= 0x30FF)    /* 平假名 + 片假名 */
+        || (c >= 0x3100  && c <= 0x312F)    /* 注音 */
+        || (c >= 0x3130  && c <= 0x318F)    /* 韩文兼容字母 */
+        || (c >= 0x31C0  && c <= 0x31EF)    /* CJK 笔画 */
+        || (c >= 0x3200  && c <= 0x32FF)    /* 带圈 CJK */
+        || (c >= 0x3400  && c <= 0x4DBF)    /* CJK 扩展 A */
+        || (c >= 0x4E00  && c <= 0x9FFF)    /* CJK 统一表意文字 */
+        || (c >= 0xA960  && c <= 0xA97F)    /* 韩文字母扩展 A */
+        || (c >= 0xAC00  && c <= 0xD7AF)    /* 韩文音节 */
+        || (c >= 0xF900  && c <= 0xFAFF)    /* CJK 兼容表意文字 */
+        || (c >= 0xFF00  && c <= 0xFF60)    /* 全角形式 */
+        || (c >= 0xFFE0  && c <= 0xFFE6)    /* 全角符号 */
+        || (c >= 0x20000 && c <= 0x3FFFF);  /* CJK 扩展 B 及以后 */
+}
+
+/* 不得出现在行首的字符（句读、收尾括号、小型假名等） */
+static bool cui__no_line_start(uint32_t c) {
+    switch (c) {
+    case 0x3001: case 0x3002:                       /* 、 。 */
+    case 0xFF0C: case 0xFF0E: case 0xFF61:          /* ， ． ｡ */
+    case 0xFF01: case 0xFF1F: case 0xFF1A: case 0xFF1B:  /* ！？：； */
+    case 0xFF09: case 0xFF3D: case 0xFF5D:          /* ） ］ ｝ */
+    case 0x3009: case 0x300B: case 0x300D:
+    case 0x300F: case 0x3011: case 0x3015:          /* 〉 》 」 』 】 〕 */
+    case 0x3005: case 0x30FB:                       /* 々 ・ */
+        return true;
+    default:
+        return false;
+    }
+}
+
+/* 不得留在行尾的字符（开括号、开引号） */
+static bool cui__no_line_end(uint32_t c) {
+    switch (c) {
+    case 0xFF08: case 0xFF3B: case 0xFF5B:          /* （ ［ ｛ */
+    case 0x3008: case 0x300A: case 0x300C:
+    case 0x300E: case 0x3010: case 0x3014:          /* 〈 《 「 『 【 〔 */
+        return true;
+    default:
+        return false;
+    }
+}
+
 static int cui__text_wrap_greedy(cui_ctx *ui, cui_font font, float size, const char *text, int len, float width,
                                  cui_text_layout_line *lines, int max_lines) {
     font = cui__resolve_font(ui, font);
@@ -527,6 +579,11 @@ static int cui__text_wrap_greedy(cui_ctx *ui, cui_font font, float size, const c
     float line_w = 0;
     int last_break = -1;        /* byte index of the last space in line */
     float width_at_break = 0;
+    /* CJK 断点（字与字之间）：与空格断点并列的第二类机会点。
+     * 记录时已排除禁则非法位置，命中即按字断行。 */
+    int last_cjk_break = -1;
+    float width_at_cjk_break = 0;
+    uint32_t prev_cp = 0;       /* 上一字形码位（禁则：前字不可在行尾） */
     cui__glyph_iter it;
     cui__iter_init(&it, ui, font, size, text, len, false);
     float base_x = 0;
@@ -534,14 +591,22 @@ static int cui__text_wrap_greedy(cui_ctx *ui, cui_font font, float size, const c
     while (cui__iter_next(&it)) {
         if (it.cp == '\n') {
             CUI__EMIT(line_start, it.start, it.gx - base_x);
-            line_start = it.end; base_x = it.x; last_break = -1; it.prev_gi = 0;
+            line_start = it.end; base_x = it.x;
+            last_break = -1; last_cjk_break = -1; prev_cp = 0; it.prev_gi = 0;
             continue;
         }
         float right = it.gx + it.adv - base_x;
         if (cui__is_space(it.cp)) {
             last_break = it.start;
             width_at_break = it.gx - base_x;
+            prev_cp = it.cp;
             continue;
+        }
+        /* 记录 CJK 断点：本字是 CJK 且允许出现在行首，且前字允许留在行尾 */
+        if (cui__is_cjk(it.cp) && !cui__no_line_start(it.cp) &&
+            !cui__no_line_end(prev_cp) && it.start > line_start) {
+            last_cjk_break = it.start;
+            width_at_cjk_break = it.gx - base_x;
         }
         if (right > width + 0.01f && it.start > line_start) {
             if (last_break > line_start) {
@@ -552,14 +617,22 @@ static int cui__text_wrap_greedy(cui_ctx *ui, cui_font font, float size, const c
                 line_start = p;
                 /* recompute base: measure from line_start to current glyph start */
                 base_x = it.gx - cui__text_width_raw(ui, font, size, text + line_start, it.start - line_start, false);
+            } else if (last_cjk_break > line_start) {
+                /* CJK 按字断行（断点已在上面按禁则筛过） */
+                CUI__EMIT(line_start, last_cjk_break, width_at_cjk_break);
+                line_start = last_cjk_break;
+                base_x = it.gx - cui__text_width_raw(ui, font, size, text + line_start,
+                                                     it.start - line_start, false);
             } else {
-                /* break inside a long word */
+                /* break inside a long word（非 CJK 超长词，或禁则挡住了断点） */
                 CUI__EMIT(line_start, it.start, it.gx - base_x);
                 line_start = it.start;
                 base_x = it.gx;
             }
             last_break = -1;
+            last_cjk_break = -1;
         }
+        prev_cp = it.cp;
         line_w = it.x - base_x;
     }
     (void)line_w;

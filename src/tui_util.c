@@ -49,6 +49,58 @@ double tui_arg_float(VM *vm, TVal *args, int n, int i, const char *who,
                   who, pname, tphp_val_type_name(args[i]));
 }
 
+/* ---- 枚举 case 读取 ----
+ * 按 FQCN 查当前线程类表（worker 的类表是克隆，不能缓存 master 指针）。
+ * 命中 CK_ENUM 的类后，用 tphp_enum_case_find 确认对象确为该类 case 单例，
+ * 再取 backing int。非 case 对象（例如 new 出来的普通实例）一律 TypeError。 */
+
+/* PHP 类名习惯是 UpperCamelCase，但 FQCN 由扩展作者给定。这里按「命名空间
+ * 分隔符后首字母大写，其余原样」渲染，不做中间驼峰——那是猜，猜错比留小写
+ * 更误导。报错文案要的是「用户能对上号」，不是完美还原声明。 */
+static const char *enum_display(const char *enum_lc, char *buf, size_t cap) {
+    size_t i = 0;
+    bool up = true;
+    for (; enum_lc[i] && i + 1 < cap; i++) {
+        char c = enum_lc[i];
+        if (c == '\\') { up = true; buf[i] = c; continue; }
+        buf[i] = up ? (char)((c >= 'a' && c <= 'z') ? c - 32 : c) : c;
+        up = false;
+    }
+    buf[i] = 0;
+    return buf;
+}
+
+int64_t tui_opt_enum(VM *vm, TVal *args, int n, int i, int64_t def,
+                     const char *who, const char *pname, const char *enum_lc) {
+    if (n <= i) return def;
+    TVal v = args[i];
+    if (v.t == T_INT) return v.u.i;              /* 旧 API 兼容 */
+    if (v.t == T_OBJ) {
+        TObj *o = (TObj *)v.u.p;
+        TClass *cls = o->cls;
+        if (cls && cls->kind == CK_ENUM &&
+            tstr_case_eq(tstr_val(cls->name), enum_lc)) {
+            int ci = tphp_enum_case_find(cls, o);
+            if (ci >= 0 && cls->cases[ci].backing.t == T_INT)
+                return cls->cases[ci].backing.u.i;
+        }
+    }
+    char dbuf[256];
+    /* who 形如 "Tphp\\Tui\\App::button()"（自带括号），故不再补 */
+    tphp_vm_raise(vm, "TypeError",
+                  "%s: argument %s must be of type %s, %s given",
+                  who, pname, enum_display(enum_lc, dbuf, sizeof dbuf),
+                  tphp_val_type_name(v));
+}
+
+int64_t tui_arg_enum(VM *vm, TVal *args, int n, int i, const char *who,
+                     const char *pname, const char *enum_lc) {
+    if (n <= i)
+        tphp_vm_raise(vm, "ArgumentCountError",
+                      "%s() expects at least %d argument(s)", who, i + 1);
+    return tui_opt_enum(vm, args, n, i, 0, who, pname, enum_lc);
+}
+
 /* ---- 参数读取（可选：缺省给默认值，给了但类型不对抛 TypeError） ---- */
 
 int64_t tui_opt_int(VM *vm, TVal *args, int n, int i, int64_t def,
@@ -103,6 +155,24 @@ cui_app *tui_need_app(VM *vm, TObj *o, const char *who) {
 
 cui_ctx *tui_need_ui(VM *vm, TObj *o, const char *who) {
     return cui_app_ui(tui_need_app(vm, o, who));
+}
+
+/* ---- SCOPE_IF 失配检测（阶段 A）----
+ * 遍历各域的未闭合 begin 标记，返回第一个仍为 true 的 PHP begin 名；
+ * 全闭合返回 NULL。frame() 在渲染上一段之前调用，残留即意味着上一段
+ * 漏写 xxxEnd()，继续渲染会令 node 栈失衡而随机 AV（coverage.md §3）。 */
+const char *tui_scopeif_unclosed(void) {
+    const char *n = tui_layout_scopeif_unclosed();
+    if (n) return n;
+    return tui_content_scopeif_unclosed();
+}
+
+/* destroy() 时清残留：避免本实例的未闭合标记污染下一个 App 实例 */
+void tui_scopeif_clear(void) {
+    /* 逐域清理由各域导出；此处仅调用汇总清理由各域函数完成。
+     * 当前实现见 tui_layout.c / tui_content.c 的同名 helper。 */
+    tui_layout_scopeif_clear();
+    tui_content_scopeif_clear();
 }
 
 /* ---- 类注册 ---- */

@@ -121,6 +121,32 @@ static bool g_popover_on, g_menu_on, g_ctxmenu_on, g_dialog_on, g_sheet_on,
             g_accordion_on, g_table_on, g_tree_on, g_hover_on, g_expand_on,
             g_usermenu_on, g_dockpanel_on, g_datagrid_on;
 
+/* SCOPE_IF 失配检测（阶段 A）：返回本域第一个未闭合的 PHP begin 名。
+ * 与 End 守卫共用同一批 g_*_on 标记——begin 置 true、End 清 false，
+ * 残留 true 即上一段漏写 End。顺序与 coverage.md §3 的 14 对一致。 */
+const char *tui_layout_scopeif_unclosed(void) {
+    if (g_popover_on)   return "popoverBegin/popoverEnd";
+    if (g_menu_on)      return "menuBegin/menuEnd";
+    if (g_ctxmenu_on)   return "contextMenuBegin/contextMenuEnd";
+    if (g_dialog_on)    return "dialogBegin/dialogEnd";
+    if (g_sheet_on)     return "sheetBegin/sheetEnd";
+    if (g_hover_on)     return "hoverCardBegin/hoverCardEnd";
+    if (g_usermenu_on)  return "userMenuBegin/userMenuEnd";
+    if (g_accordion_on) return "accordionBegin/accordionEnd";
+    if (g_tree_on)      return "treeBegin/treeEnd";
+    if (g_table_on)     return "tableBegin/tableEnd";
+    if (g_datagrid_on)  return "dataGridBegin/dataGridEnd";
+    if (g_dockpanel_on) return "dockPanelBegin/dockPanelEnd";
+    if (g_expand_on)    return "expandableCardBegin/expandableCardEnd";
+    return NULL;
+}
+
+void tui_layout_scopeif_clear(void) {
+    g_popover_on = g_menu_on = g_ctxmenu_on = g_dialog_on = g_sheet_on = false;
+    g_accordion_on = g_table_on = g_tree_on = g_hover_on = g_expand_on = false;
+    g_usermenu_on = g_dockpanel_on = g_datagrid_on = false;
+}
+
 /* reorder order */
 static int *g_reorder; static int g_reorder_n;
 

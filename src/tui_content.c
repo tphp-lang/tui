@@ -885,6 +885,15 @@ static TVal nm_signature_clear(VM *vm, void *self, TVal *args, int n) {
  * begin 返回 false 时 CUI 未开编辑器，End 必须跳过（SCOPE_IF 语义）。 */
 static bool g_nodeed_on;
 
+/* SCOPE_IF 失配检测（阶段 A）：nodeEditor 是本域唯一的 SCOPE_IF 对 */
+const char *tui_content_scopeif_unclosed(void) {
+    return g_nodeed_on ? "nodeEditorBegin/nodeEditorEnd" : NULL;
+}
+
+void tui_content_scopeif_clear(void) {
+    g_nodeed_on = false;
+}
+
 static TVal nm_node_editor_begin(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::nodeEditorBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
