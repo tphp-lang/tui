@@ -109,66 +109,57 @@ static bool open_in(VM *vm, TVal *args, int n, int i, const char *who,
 
 static TVal open_out(bool v) { return v ? TV_TRUE : TV_FALSE; }
 
-/* ---- 静态借阅缓冲（begin→end 生命周期） ---- */
-
-/* split ratio（B.9：引擎支持 worker 多线程跑 PHP，封装层静态须按线程隔离） */
-static _Thread_local float g_split_ratio;
-
-/* SCOPE_IF 类 begin/end（对应 cui.h 的 CUI__SCOPE_IF 宏）：begin 返回 false
- * 表示 CUI 未开节点，End 必须跳过——无条件 End 会关掉父节点，node 栈失衡，
- * 后续组件读到垃圾 current 索引而 AV（实测崩溃于 cui_accordion_begin）。 */
-static _Thread_local bool g_popover_on, g_menu_on, g_ctxmenu_on, g_dialog_on, g_sheet_on,
-            g_accordion_on, g_table_on, g_tree_on, g_hover_on, g_expand_on,
-            g_usermenu_on, g_dockpanel_on, g_datagrid_on;
+/* ---- per-App 域状态（替代文件级静态，消除同线程多窗口交错串扰）----
+ * 所有 begin→end 借阅缓冲与 SCOPE_IF 标记存于 Layout 子对象的 state 槽，
+ * 每个 App 的 Layout 子对象独立 → 状态天然 per-App。
+ * 注意：下列方法均有 self 参数（域对象），宏 GSTATE 从 self 取 state。 */
+#define GSTATE ((TuiLayoutState *)tui_state_get((TObj *)self, "state", sizeof(TuiLayoutState)))
 
 /* SCOPE_IF 失配检测（阶段 A）：返回本域第一个未闭合的 PHP begin 名。
- * 与 End 守卫共用同一批 g_*_on 标记——begin 置 true、End 清 false，
- * 残留 true 即上一段漏写 End。顺序与 coverage.md §3 的 14 对一致。 */
-const char *tui_layout_scopeif_unclosed(void) {
-    if (g_popover_on)   return "popoverBegin/popoverEnd";
-    if (g_menu_on)      return "menuBegin/menuEnd";
-    if (g_ctxmenu_on)   return "contextMenuBegin/contextMenuEnd";
-    if (g_dialog_on)    return "dialogBegin/dialogEnd";
-    if (g_sheet_on)     return "sheetBegin/sheetEnd";
-    if (g_hover_on)     return "hoverCardBegin/hoverCardEnd";
-    if (g_usermenu_on)  return "userMenuBegin/userMenuEnd";
-    if (g_accordion_on) return "accordionBegin/accordionEnd";
-    if (g_tree_on)      return "treeBegin/treeEnd";
-    if (g_table_on)     return "tableBegin/tableEnd";
-    if (g_datagrid_on)  return "dataGridBegin/dataGridEnd";
-    if (g_dockpanel_on) return "dockPanelBegin/dockPanelEnd";
-    if (g_expand_on)    return "expandableCardBegin/expandableCardEnd";
+ * 接收 Layout 域对象（per-App）；顺序与 coverage.md §3 的 14 对一致。 */
+const char *tui_layout_scopeif_unclosed(TObj *layout) {
+    TuiLayoutState *S = (TuiLayoutState *)tui_state_get(layout, "state", sizeof(TuiLayoutState));
+    if (!S) return NULL;
+    if (S->popover_on)   return "popoverBegin/popoverEnd";
+    if (S->menu_on)      return "menuBegin/menuEnd";
+    if (S->ctxmenu_on)   return "contextMenuBegin/contextMenuEnd";
+    if (S->dialog_on)    return "dialogBegin/dialogEnd";
+    if (S->sheet_on)     return "sheetBegin/sheetEnd";
+    if (S->hover_on)     return "hoverCardBegin/hoverCardEnd";
+    if (S->usermenu_on)  return "userMenuBegin/userMenuEnd";
+    if (S->accordion_on) return "accordionBegin/accordionEnd";
+    if (S->tree_on)      return "treeBegin/treeEnd";
+    if (S->table_on)     return "tableBegin/tableEnd";
+    if (S->datagrid_on)  return "dataGridBegin/dataGridEnd";
+    if (S->dockpanel_on) return "dockPanelBegin/dockPanelEnd";
+    if (S->expand_on)    return "expandableCardBegin/expandableCardEnd";
     return NULL;
 }
 
-void tui_layout_scopeif_clear(void) {
-    g_popover_on = g_menu_on = g_ctxmenu_on = g_dialog_on = g_sheet_on = false;
-    g_accordion_on = g_table_on = g_tree_on = g_hover_on = g_expand_on = false;
-    g_usermenu_on = g_dockpanel_on = g_datagrid_on = false;
+void tui_layout_scopeif_clear(TObj *layout) {
+    TuiLayoutState *S = (TuiLayoutState *)tui_state_get(layout, "state", sizeof(TuiLayoutState));
+    if (!S) return;
+    S->popover_on = S->menu_on = S->ctxmenu_on = S->dialog_on = S->sheet_on = false;
+    S->accordion_on = S->table_on = S->tree_on = S->hover_on = S->expand_on = false;
+    S->usermenu_on = S->dockpanel_on = S->datagrid_on = false;
 }
-
-/* reorder order */
-static _Thread_local int *g_reorder; static _Thread_local int g_reorder_n;
-
-/* swipe actions（含拷贝的字符串） */
-static _Thread_local cui_swipe_action *g_swipe_l; static _Thread_local int g_swipe_ln;
-static _Thread_local cui_swipe_action *g_swipe_r; static _Thread_local int g_swipe_rn;
-static _Thread_local char **g_swipe_strs; static _Thread_local int g_swipe_nstr;
-
-/* table columns */
-static _Thread_local cui_table_column *g_tcols; static _Thread_local int g_tcoln;
-static _Thread_local char **g_tcol_strs; static _Thread_local int g_tcol_nstr;
-
-/* dataGrid / treeTable columns */
-static _Thread_local cui_grid_column *g_gcols; static _Thread_local int g_gcoln;
-static _Thread_local char **g_gcol_strs; static _Thread_local int g_gcol_nstr;
-
-/* treeTable nodes */
-static _Thread_local cui_tree_node *g_tnodes; static _Thread_local int g_tnoden;
 
 static void free_strs(char **a, int n) {
     for (int i = 0; i < n; i++) tm_free(a[i]);
     tm_free(a);
+}
+
+/* Layout state 析构：释放尚存的借阅数组（正常配对下 End 已回收，
+ * 此处兜底异常中断或漏 End 的场景，防泄漏）。 */
+void tui_layout_state_free(void *p) {
+    TuiLayoutState *S = (TuiLayoutState *)p;
+    if (!S) return;
+    tm_free(S->reorder);
+    tm_free(S->swipe_l); tm_free(S->swipe_r);
+    free_strs(S->swipe_strs, S->swipe_nstr);
+    tm_free(S->tcols); free_strs(S->tcol_strs, S->tcol_nstr);
+    tm_free(S->gcols); free_strs(S->gcol_strs, S->gcol_nstr);
+    tm_free(S->tnodes);
 }
 
 /* ---- 容器 ---- */
@@ -224,8 +215,8 @@ static TVal nm_split_begin(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::splitBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     double ratio = tui_arg_float(vm, args, n, 1, who, "ratio");
-    g_split_ratio = (float)ratio;
-    cui_split_begin(tui_need_ui(vm, (TObj *)self, who), id, &g_split_ratio, NULL);
+    GSTATE->split_ratio = (float)ratio;
+    cui_split_begin(tui_need_ui(vm, (TObj *)self, who), id, &GSTATE->split_ratio, NULL);
     tui_depth_inc((TObj *)self);
     return TV_NULL;
 }
@@ -242,7 +233,7 @@ static TVal nm_split_end(VM *vm, void *self, TVal *args, int n) {
     (void)n;
     tui_depth_dec(vm, (TObj *)self, "Tphp\\Tui\\Layout::splitEnd()");
     cui_split_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\Layout::splitEnd()"));
-    return TV_FLOAT(g_split_ratio);   /* 拖拽后的新比例（PHP 持状态） */
+    return TV_FLOAT(GSTATE->split_ratio);   /* 拖拽后的新比例（PHP 持状态） */
 }
 
 /* ---- 导航 ---- */
@@ -382,16 +373,16 @@ static TVal nm_toc_anchor(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_popover_begin(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::popoverBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
-    g_popover_on = cui_popover_begin(tui_need_ui(vm, (TObj *)self, who), id, NULL);
-    return open_out(g_popover_on);
+    GSTATE->popover_on = cui_popover_begin(tui_need_ui(vm, (TObj *)self, who), id, NULL);
+    return open_out(GSTATE->popover_on);
 }
 
 static TVal nm_popover_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    if (g_popover_on) {
+    if (GSTATE->popover_on) {
         cui_popover_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\App::popoverEnd()"));
-        g_popover_on = false;
+        GSTATE->popover_on = false;
     }
     return TV_NULL;
 }
@@ -417,16 +408,16 @@ static TVal nm_popover_is_open(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_menu_begin(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::menuBegin()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
-    g_menu_on = cui_menu_begin(tui_need_ui(vm, (TObj *)self, who), label, NULL);
-    return open_out(g_menu_on);
+    GSTATE->menu_on = cui_menu_begin(tui_need_ui(vm, (TObj *)self, who), label, NULL);
+    return open_out(GSTATE->menu_on);
 }
 
 static TVal nm_menu_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    if (g_menu_on) {
+    if (GSTATE->menu_on) {
         cui_menu_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\App::menuEnd()"));
-        g_menu_on = false;
+        GSTATE->menu_on = false;
     }
     return TV_NULL;
 }
@@ -434,17 +425,17 @@ static TVal nm_menu_end(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_context_menu_begin(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::contextMenuBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
-    g_ctxmenu_on = cui_context_menu_begin(tui_need_ui(vm, (TObj *)self, who), id);
-    return open_out(g_ctxmenu_on);
+    GSTATE->ctxmenu_on = cui_context_menu_begin(tui_need_ui(vm, (TObj *)self, who), id);
+    return open_out(GSTATE->ctxmenu_on);
 }
 
 static TVal nm_context_menu_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    if (g_ctxmenu_on) {
+    if (GSTATE->ctxmenu_on) {
         cui_context_menu_end(tui_need_ui(vm, (TObj *)self,
                                          "Tphp\\Tui\\App::contextMenuEnd()"));
-        g_ctxmenu_on = false;
+        GSTATE->ctxmenu_on = false;
     }
     return TV_NULL;
 }
@@ -475,17 +466,17 @@ static TVal nm_dialog_begin(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::dialogBegin()";
     const char *title = tui_arg_str(vm, args, n, 0, who);
     bool open = open_in(vm, args, n, 1, who, "open");
-    g_dialog_on = cui_dialog_begin(tui_need_ui(vm, (TObj *)self, who),
+    GSTATE->dialog_on = cui_dialog_begin(tui_need_ui(vm, (TObj *)self, who),
                                    title, &open, NULL);
-    return open_out(g_dialog_on);
+    return open_out(GSTATE->dialog_on);
 }
 
 static TVal nm_dialog_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    if (g_dialog_on) {
+    if (GSTATE->dialog_on) {
         cui_dialog_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\App::dialogEnd()"));
-        g_dialog_on = false;
+        GSTATE->dialog_on = false;
     }
     return TV_NULL;
 }
@@ -510,17 +501,17 @@ static TVal nm_sheet_begin(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::sheetBegin()";
     const char *title = tui_arg_str(vm, args, n, 0, who);
     bool open = open_in(vm, args, n, 1, who, "open");
-    g_sheet_on = cui_sheet_begin(tui_need_ui(vm, (TObj *)self, who),
+    GSTATE->sheet_on = cui_sheet_begin(tui_need_ui(vm, (TObj *)self, who),
                                  title, &open, NULL);
-    return open_out(g_sheet_on);
+    return open_out(GSTATE->sheet_on);
 }
 
 static TVal nm_sheet_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    if (g_sheet_on) {
+    if (GSTATE->sheet_on) {
         cui_sheet_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\App::sheetEnd()"));
-        g_sheet_on = false;
+        GSTATE->sheet_on = false;
     }
     return TV_NULL;
 }
@@ -563,17 +554,17 @@ static TVal nm_banner(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_hover_card_begin(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::hoverCardBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
-    g_hover_on = cui_hover_card_begin(tui_need_ui(vm, (TObj *)self, who), id, NULL);
-    return open_out(g_hover_on);
+    GSTATE->hover_on = cui_hover_card_begin(tui_need_ui(vm, (TObj *)self, who), id, NULL);
+    return open_out(GSTATE->hover_on);
 }
 
 static TVal nm_hover_card_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    if (g_hover_on) {
+    if (GSTATE->hover_on) {
         cui_hover_card_end(tui_need_ui(vm, (TObj *)self,
                                        "Tphp\\Tui\\App::hoverCardEnd()"));
-        g_hover_on = false;
+        GSTATE->hover_on = false;
     }
     return TV_NULL;
 }
@@ -581,17 +572,17 @@ static TVal nm_hover_card_end(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_user_menu_begin(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::userMenuBegin()";
     const char *name = tui_arg_str(vm, args, n, 0, who);
-    g_usermenu_on = cui_user_menu_begin(tui_need_ui(vm, (TObj *)self, who), name, NULL);
-    return open_out(g_usermenu_on);
+    GSTATE->usermenu_on = cui_user_menu_begin(tui_need_ui(vm, (TObj *)self, who), name, NULL);
+    return open_out(GSTATE->usermenu_on);
 }
 
 static TVal nm_user_menu_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    if (g_usermenu_on) {
+    if (GSTATE->usermenu_on) {
         cui_user_menu_end(tui_need_ui(vm, (TObj *)self,
                                       "Tphp\\Tui\\App::userMenuEnd()"));
-        g_usermenu_on = false;
+        GSTATE->usermenu_on = false;
     }
     return TV_NULL;
 }
@@ -646,18 +637,18 @@ static TVal nm_accordion_begin(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::accordionBegin()";
     const char *title = tui_arg_str(vm, args, n, 0, who);
     bool open = open_in(vm, args, n, 1, who, "open");
-    g_accordion_on = cui_accordion_begin(tui_need_ui(vm, (TObj *)self, who),
+    GSTATE->accordion_on = cui_accordion_begin(tui_need_ui(vm, (TObj *)self, who),
                                          title, &open);
-    return open_out(g_accordion_on);
+    return open_out(GSTATE->accordion_on);
 }
 
 static TVal nm_accordion_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    if (g_accordion_on) {
+    if (GSTATE->accordion_on) {
         cui_accordion_end(tui_need_ui(vm, (TObj *)self,
                                       "Tphp\\Tui\\App::accordionEnd()"));
-        g_accordion_on = false;
+        GSTATE->accordion_on = false;
     }
     return TV_NULL;
 }
@@ -666,17 +657,17 @@ static TVal nm_tree_begin(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::treeBegin()";
     const char *label = tui_arg_str(vm, args, n, 0, who);
     bool open = open_in(vm, args, n, 1, who, "open");
-    g_tree_on = cui_tree_begin(tui_need_ui(vm, (TObj *)self, who),
+    GSTATE->tree_on = cui_tree_begin(tui_need_ui(vm, (TObj *)self, who),
                                label, &open, NULL);
-    return open_out(g_tree_on);
+    return open_out(GSTATE->tree_on);
 }
 
 static TVal nm_tree_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    if (g_tree_on) {
+    if (GSTATE->tree_on) {
         cui_tree_end(tui_need_ui(vm, (TObj *)self, "Tphp\\Tui\\App::treeEnd()"));
-        g_tree_on = false;
+        GSTATE->tree_on = false;
     }
     return TV_NULL;
 }
@@ -722,7 +713,7 @@ static TVal nm_virtual_list_end(VM *vm, void *self, TVal *args, int n) {
 
 /* swipe：actions=[['icon'=>,'label'=>,'tone'=>0]]；begin 借阅到 end（静态暂存） */
 static void swipe_fill(VM *vm, TArr *rows, const char *pname, const char *who,
-                       cui_swipe_action **out_acts, int *out_n) {
+                       cui_swipe_action **out_acts, int *out_n, TuiLayoutState *S) {
     int cnt = 0;
     for (uint32_t i = 0; i < rows->dused; i++)
         if (rows->data[i].t != T_UNDEF) cnt++;
@@ -749,14 +740,14 @@ static void swipe_fill(VM *vm, TArr *rows, const char *pname, const char *who,
         const char *ic = row_opt_str(vm, row, "icon", who, pname, k + 1);
         const char *lb = row_req_str(vm, row, "label", who, pname, k + 1);
         char *cs = dup_s(lb);
-        g_swipe_strs = tm_realloc(g_swipe_strs,
-                                  sizeof(char *) * (size_t)(g_swipe_nstr + 1));
-        g_swipe_strs[g_swipe_nstr++] = cs;
+        S->swipe_strs = tm_realloc(S->swipe_strs,
+                                  sizeof(char *) * (size_t)(S->swipe_nstr + 1));
+        S->swipe_strs[S->swipe_nstr++] = cs;
         char *icon_dup = ic ? dup_s(ic) : NULL;
         if (icon_dup) {
-            g_swipe_strs = tm_realloc(g_swipe_strs,
-                                      sizeof(char *) * (size_t)(g_swipe_nstr + 1));
-            g_swipe_strs[g_swipe_nstr++] = icon_dup;
+            S->swipe_strs = tm_realloc(S->swipe_strs,
+                                      sizeof(char *) * (size_t)(S->swipe_nstr + 1));
+            S->swipe_strs[S->swipe_nstr++] = icon_dup;
         }
         acts[k].icon = icon_dup;
         acts[k].label = cs;
@@ -771,21 +762,21 @@ static TVal nm_swipe_item_begin(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::swipeItemBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     /* 清上一轮借阅 */
-    tm_free(g_swipe_l);
-    tm_free(g_swipe_r);
-    free_strs(g_swipe_strs, g_swipe_nstr);
-    g_swipe_l = g_swipe_r = NULL;
-    g_swipe_strs = NULL;
-    g_swipe_ln = g_swipe_rn = g_swipe_nstr = 0;
+    tm_free(GSTATE->swipe_l);
+    tm_free(GSTATE->swipe_r);
+    free_strs(GSTATE->swipe_strs, GSTATE->swipe_nstr);
+    GSTATE->swipe_l = GSTATE->swipe_r = NULL;
+    GSTATE->swipe_strs = NULL;
+    GSTATE->swipe_ln = GSTATE->swipe_rn = GSTATE->swipe_nstr = 0;
     TArr *left = rows_of(vm, &args[1], who, "left");
     TArr *right = n >= 3 && args[2].t == T_ARR ? (TArr *)args[2].u.p : NULL;
     if (n >= 3 && args[2].t != T_ARR && args[2].t != T_NULL)
         RAISE(vm, "TypeError", "%s(): argument right must be of type array, %s given",
               who, tphp_val_type_name(args[2]));
-    swipe_fill(vm, left, "left", who, &g_swipe_l, &g_swipe_ln);
-    if (right) swipe_fill(vm, right, "right", who, &g_swipe_r, &g_swipe_rn);
+    swipe_fill(vm, left, "left", who, &GSTATE->swipe_l, &GSTATE->swipe_ln, GSTATE);
+    if (right) swipe_fill(vm, right, "right", who, &GSTATE->swipe_r, &GSTATE->swipe_rn, GSTATE);
     cui_swipe_item_begin(tui_need_ui(vm, (TObj *)self, who), id,
-                         g_swipe_l, g_swipe_ln, g_swipe_r, g_swipe_rn);
+                         GSTATE->swipe_l, GSTATE->swipe_ln, GSTATE->swipe_r, GSTATE->swipe_rn);
     return TV_NULL;
 }
 
@@ -795,12 +786,12 @@ static TVal nm_swipe_item_end(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::swipeItemEnd()";
     int picked = cui_swipe_item_end(tui_need_ui(vm, (TObj *)self, who));
     /* end 后 CUI 不再借阅：立即回收 */
-    tm_free(g_swipe_l);
-    tm_free(g_swipe_r);
-    free_strs(g_swipe_strs, g_swipe_nstr);
-    g_swipe_l = g_swipe_r = NULL;
-    g_swipe_strs = NULL;
-    g_swipe_ln = g_swipe_rn = g_swipe_nstr = 0;
+    tm_free(GSTATE->swipe_l);
+    tm_free(GSTATE->swipe_r);
+    free_strs(GSTATE->swipe_strs, GSTATE->swipe_nstr);
+    GSTATE->swipe_l = GSTATE->swipe_r = NULL;
+    GSTATE->swipe_strs = NULL;
+    GSTATE->swipe_ln = GSTATE->swipe_rn = GSTATE->swipe_nstr = 0;
     return TV_INT(picked);   /* 0..left-1 / 100+right / -1 */
 }
 
@@ -810,16 +801,16 @@ static TVal nm_reorder_begin(VM *vm, void *self, TVal *args, int n) {
     const char *id = tui_arg_str(vm, args, n, 0, who);
     int cnt = 0;
     int64_t *vals = tui_ints(vm, &args[1], who, "order", &cnt);
-    tm_free(g_reorder);
-    g_reorder = NULL;
-    g_reorder_n = 0;
+    tm_free(GSTATE->reorder);
+    GSTATE->reorder = NULL;
+    GSTATE->reorder_n = 0;
     if (cnt) {
-        g_reorder = tm_malloc(sizeof(int) * (size_t)cnt);
-        for (int i = 0; i < cnt; i++) g_reorder[i] = (int)vals[i];
-        g_reorder_n = cnt;
+        GSTATE->reorder = tm_malloc(sizeof(int) * (size_t)cnt);
+        for (int i = 0; i < cnt; i++) GSTATE->reorder[i] = (int)vals[i];
+        GSTATE->reorder_n = cnt;
     }
     tui_arr_free(vals);
-    cui_reorder_begin(tui_need_ui(vm, (TObj *)self, who), id, g_reorder, g_reorder_n);
+    cui_reorder_begin(tui_need_ui(vm, (TObj *)self, who), id, GSTATE->reorder, GSTATE->reorder_n);
     return TV_NULL;
 }
 
@@ -829,10 +820,10 @@ static TVal nm_reorder_end(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::reorderEnd()";
     cui_reorder_end(tui_need_ui(vm, (TObj *)self, who));
     TArr *a = tarr_new();
-    for (int i = 0; i < g_reorder_n; i++) tarr_append(a, TV_INT(g_reorder[i]));
-    tm_free(g_reorder);
-    g_reorder = NULL;
-    g_reorder_n = 0;
+    for (int i = 0; i < GSTATE->reorder_n; i++) tarr_append(a, TV_INT(GSTATE->reorder[i]));
+    tm_free(GSTATE->reorder);
+    GSTATE->reorder = NULL;
+    GSTATE->reorder_n = 0;
     return TV_ARR(a);   /* 新顺序（未变则与输入相同） */
 }
 
@@ -840,7 +831,7 @@ static TVal nm_reorder_end(VM *vm, void *self, TVal *args, int n) {
 
 /* columns=[['title'=>,'sortable'=>false,'align'=>0,'width'=>0.0]] → 静态拷贝 */
 static void grid_cols_fill(VM *vm, TArr *rows, const char *pname, const char *who,
-                           cui_grid_column **out, int *out_n) {
+                           cui_grid_column **out, int *out_n, TuiLayoutState *S) {
     int cnt = 0;
     for (uint32_t i = 0; i < rows->dused; i++)
         if (rows->data[i].t != T_UNDEF) cnt++;
@@ -851,9 +842,9 @@ static void grid_cols_fill(VM *vm, TArr *rows, const char *pname, const char *wh
         if (e.t == T_UNDEF) continue;
         TArr *row = row_arr(vm, e, who, pname, k + 1);
         char *title = dup_s(row_req_str(vm, row, "title", who, pname, k + 1));
-        g_gcol_strs = tm_realloc(g_gcol_strs,
-                                 sizeof(char *) * (size_t)(g_gcol_nstr + 1));
-        g_gcol_strs[g_gcol_nstr++] = title;
+        S->gcol_strs = tm_realloc(S->gcol_strs,
+                                 sizeof(char *) * (size_t)(S->gcol_nstr + 1));
+        S->gcol_strs[S->gcol_nstr++] = title;
         double w = row_opt_float(vm, row, "width", 150, who, pname, k + 1);
         int64_t align = row_opt_int(vm, row, "align", 0, who, pname, k + 1);
         if (align < 0 || align > 4)
@@ -871,12 +862,12 @@ static void grid_cols_fill(VM *vm, TArr *rows, const char *pname, const char *wh
     *out_n = cnt;
 }
 
-static void grid_cols_free(void) {
-    tm_free(g_gcols);
-    free_strs(g_gcol_strs, g_gcol_nstr);
-    g_gcols = NULL;
-    g_gcol_strs = NULL;
-    g_gcoln = g_gcol_nstr = 0;
+static void grid_cols_free(TuiLayoutState *S) {
+    tm_free(S->gcols);
+    free_strs(S->gcol_strs, S->gcol_nstr);
+    S->gcols = NULL;
+    S->gcol_strs = NULL;
+    S->gcoln = S->gcol_nstr = 0;
 }
 
 static TVal nm_table_begin(VM *vm, void *self, TVal *args, int n) {
@@ -884,35 +875,35 @@ static TVal nm_table_begin(VM *vm, void *self, TVal *args, int n) {
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "columns");
     /* 释放上一轮 */
-    tm_free(g_tcols);
-    free_strs(g_tcol_strs, g_tcol_nstr);
-    g_tcols = NULL;
-    g_tcol_strs = NULL;
-    g_tcoln = g_tcol_nstr = 0;
+    tm_free(GSTATE->tcols);
+    free_strs(GSTATE->tcol_strs, GSTATE->tcol_nstr);
+    GSTATE->tcols = NULL;
+    GSTATE->tcol_strs = NULL;
+    GSTATE->tcoln = GSTATE->tcol_nstr = 0;
     int cnt = 0;
     for (uint32_t i = 0; i < rows->dused; i++)
         if (rows->data[i].t != T_UNDEF) cnt++;
-    g_tcols = cnt ? tm_malloc(sizeof(cui_table_column) * (size_t)cnt) : NULL;
+    GSTATE->tcols = cnt ? tm_malloc(sizeof(cui_table_column) * (size_t)cnt) : NULL;
     int k = 0;
     for (uint32_t i = 0; i < rows->dused; i++) {
         TVal e = rows->data[i];
         if (e.t == T_UNDEF) continue;
         TArr *row = row_arr(vm, e, who, "columns", k + 1);
         char *title = dup_s(row_req_str(vm, row, "title", who, "columns", k + 1));
-        g_tcol_strs = tm_realloc(g_tcol_strs,
-                                 sizeof(char *) * (size_t)(g_tcol_nstr + 1));
-        g_tcol_strs[g_tcol_nstr++] = title;
-        g_tcols[k].title = title;
-        g_tcols[k].width = (cui_size){ CUI_SIZE_GROW, 1 };   /* 默认 fill */
-        g_tcols[k].align = CUI_TEXT_START;
-        g_tcols[k].sortable = row_opt_bool(vm, row, "sortable", false,
+        GSTATE->tcol_strs = tm_realloc(GSTATE->tcol_strs,
+                                 sizeof(char *) * (size_t)(GSTATE->tcol_nstr + 1));
+        GSTATE->tcol_strs[GSTATE->tcol_nstr++] = title;
+        GSTATE->tcols[k].title = title;
+        GSTATE->tcols[k].width = (cui_size){ CUI_SIZE_GROW, 1 };   /* 默认 fill */
+        GSTATE->tcols[k].align = CUI_TEXT_START;
+        GSTATE->tcols[k].sortable = row_opt_bool(vm, row, "sortable", false,
                                            who, "columns", k + 1);
         k++;
     }
-    g_tcoln = cnt;
-    g_table_on = cui_table_begin_ex(tui_need_ui(vm, (TObj *)self, who), id,
-                                    g_tcols, g_tcoln, NULL);
-    return open_out(g_table_on);
+    GSTATE->tcoln = cnt;
+    GSTATE->table_on = cui_table_begin_ex(tui_need_ui(vm, (TObj *)self, who), id,
+                                    GSTATE->tcols, GSTATE->tcoln, NULL);
+    return open_out(GSTATE->table_on);
 }
 
 static TVal nm_table_row(VM *vm, void *self, TVal *args, int n) {
@@ -938,16 +929,16 @@ static TVal nm_table_cell_text(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_table_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    if (g_table_on) {
+    if (GSTATE->table_on) {
         const char *who = "Tphp\\Tui\\App::tableEnd()";
         cui_table_end(tui_need_ui(vm, (TObj *)self, who));
-        g_table_on = false;
+        GSTATE->table_on = false;
     }
-    tm_free(g_tcols);
-    free_strs(g_tcol_strs, g_tcol_nstr);
-    g_tcols = NULL;
-    g_tcol_strs = NULL;
-    g_tcoln = g_tcol_nstr = 0;
+    tm_free(GSTATE->tcols);
+    free_strs(GSTATE->tcol_strs, GSTATE->tcol_nstr);
+    GSTATE->tcols = NULL;
+    GSTATE->tcol_strs = NULL;
+    GSTATE->tcoln = GSTATE->tcol_nstr = 0;
     return TV_NULL;
 }
 
@@ -957,13 +948,13 @@ static TVal nm_data_grid_begin(VM *vm, void *self, TVal *args, int n) {
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *rows = rows_of(vm, &args[1], who, "columns");
     int64_t row_count = tui_arg_int(vm, args, n, 2, who, "rowCount");
-    grid_cols_free();
-    grid_cols_fill(vm, rows, "columns", who, &g_gcols, &g_gcoln);
+    grid_cols_free(GSTATE);
+    grid_cols_fill(vm, rows, "columns", who, &GSTATE->gcols, &GSTATE->gcoln, GSTATE);
     int first = 0, last = 0;
-    g_datagrid_on = cui_data_grid_begin_ex(tui_need_ui(vm, (TObj *)self, who), id,
-                                           g_gcols, g_gcoln, (int)row_count,
+    GSTATE->datagrid_on = cui_data_grid_begin_ex(tui_need_ui(vm, (TObj *)self, who), id,
+                                           GSTATE->gcols, GSTATE->gcoln, (int)row_count,
                                            &first, &last, NULL);
-    if (!g_datagrid_on) return TV_FALSE;   /* 列暂存至下一次 begin/end 再回收 */
+    if (!GSTATE->datagrid_on) return TV_FALSE;   /* 列暂存至下一次 begin/end 再回收 */
     TArr *a = tarr_new();
     tarr_set(a, TV_STR(tstr_new("first", 5)), TV_INT(first));
     tarr_set(a, TV_STR(tstr_new("last", 4)), TV_INT(last));
@@ -1011,12 +1002,12 @@ static TVal nm_data_grid_cell_edit(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_data_grid_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    if (g_datagrid_on) {
+    if (GSTATE->datagrid_on) {
         const char *who = "Tphp\\Tui\\App::dataGridEnd()";
         cui_data_grid_end(tui_need_ui(vm, (TObj *)self, who));
-        g_datagrid_on = false;
+        GSTATE->datagrid_on = false;
     }
-    grid_cols_free();
+    grid_cols_free(GSTATE);
     return TV_NULL;
 }
 
@@ -1039,31 +1030,31 @@ static TVal nm_tree_table_begin(VM *vm, void *self, TVal *args, int n) {
     const char *id = tui_arg_str(vm, args, n, 0, who);
     TArr *cols_rows = rows_of(vm, &args[1], who, "columns");
     TArr *node_rows = rows_of(vm, &args[2], who, "nodes");
-    grid_cols_free();
-    grid_cols_fill(vm, cols_rows, "columns", who, &g_gcols, &g_gcoln);
-    tm_free(g_tnodes);
-    g_tnodes = NULL;
-    g_tnoden = 0;
+    grid_cols_free(GSTATE);
+    grid_cols_fill(vm, cols_rows, "columns", who, &GSTATE->gcols, &GSTATE->gcoln, GSTATE);
+    tm_free(GSTATE->tnodes);
+    GSTATE->tnodes = NULL;
+    GSTATE->tnoden = 0;
     int cnt = 0;
     for (uint32_t i = 0; i < node_rows->dused; i++)
         if (node_rows->data[i].t != T_UNDEF) cnt++;
-    g_tnodes = cnt ? tm_malloc(sizeof(cui_tree_node) * (size_t)cnt) : NULL;
+    GSTATE->tnodes = cnt ? tm_malloc(sizeof(cui_tree_node) * (size_t)cnt) : NULL;
     int k = 0;
     for (uint32_t i = 0; i < node_rows->dused; i++) {
         TVal e = node_rows->data[i];
         if (e.t == T_UNDEF) continue;
         TArr *row = row_arr(vm, e, who, "nodes", k + 1);
-        g_tnodes[k].parent = (int)row_opt_int(vm, row, "parent", -1, who, "nodes", k + 1);
-        g_tnodes[k].first_child =
+        GSTATE->tnodes[k].parent = (int)row_opt_int(vm, row, "parent", -1, who, "nodes", k + 1);
+        GSTATE->tnodes[k].first_child =
             (int)row_opt_int(vm, row, "first_child", -1, who, "nodes", k + 1);
-        g_tnodes[k].next_sibling =
+        GSTATE->tnodes[k].next_sibling =
             (int)row_opt_int(vm, row, "next_sibling", -1, who, "nodes", k + 1);
-        g_tnodes[k].flags = (uint32_t)row_opt_int(vm, row, "flags", 0, who, "nodes", k + 1);
+        GSTATE->tnodes[k].flags = (uint32_t)row_opt_int(vm, row, "flags", 0, who, "nodes", k + 1);
         k++;
     }
-    g_tnoden = cnt;
+    GSTATE->tnoden = cnt;
     cui_tree_table_begin_ex(tui_need_ui(vm, (TObj *)self, who), id,
-                            g_gcols, g_gcoln, g_tnodes, g_tnoden, NULL);
+                            GSTATE->gcols, GSTATE->gcoln, GSTATE->tnodes, GSTATE->tnoden, NULL);
     return TV_NULL;
 }
 
@@ -1108,10 +1099,10 @@ static TVal nm_tree_table_end(VM *vm, void *self, TVal *args, int n) {
     TArr *load = tarr_new();
     for (int i = 0; i < ev.load_count; i++) tarr_append(load, TV_INT(ev.load[i]));
     tarr_set(a, TV_STR(tstr_new("load", 4)), TV_ARR(load));
-    grid_cols_free();
-    tm_free(g_tnodes);
-    g_tnodes = NULL;
-    g_tnoden = 0;
+    grid_cols_free(GSTATE);
+    tm_free(GSTATE->tnodes);
+    GSTATE->tnodes = NULL;
+    GSTATE->tnoden = 0;
     return TV_ARR(a);
 }
 
@@ -1373,18 +1364,18 @@ static TVal nm_dock_panel_begin(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::dockPanelBegin()";
     const char *title = tui_arg_str(vm, args, n, 0, who);
     bool open = open_in(vm, args, n, 1, who, "open");
-    g_dockpanel_on = cui_dock_panel_begin_ex(tui_need_ui(vm, (TObj *)self, who),
+    GSTATE->dockpanel_on = cui_dock_panel_begin_ex(tui_need_ui(vm, (TObj *)self, who),
                                              title, &open, NULL);
-    return open_out(g_dockpanel_on);
+    return open_out(GSTATE->dockpanel_on);
 }
 
 static TVal nm_dock_panel_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    if (g_dockpanel_on) {
+    if (GSTATE->dockpanel_on) {
         cui_dock_panel_end(tui_need_ui(vm, (TObj *)self,
                                        "Tphp\\Tui\\App::dockPanelEnd()"));
-        g_dockpanel_on = false;
+        GSTATE->dockpanel_on = false;
     }
     return TV_NULL;
 }
@@ -1504,18 +1495,18 @@ static TVal nm_expandable_card_begin(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::expandableCardBegin()";
     const char *title = tui_arg_str(vm, args, n, 0, who);
     bool open = open_in(vm, args, n, 1, who, "open");
-    g_expand_on = cui_expandable_card_begin(tui_need_ui(vm, (TObj *)self, who),
+    GSTATE->expand_on = cui_expandable_card_begin(tui_need_ui(vm, (TObj *)self, who),
                                             title, &open, NULL);
-    return open_out(g_expand_on);
+    return open_out(GSTATE->expand_on);
 }
 
 static TVal nm_expandable_card_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    if (g_expand_on) {
+    if (GSTATE->expand_on) {
         cui_expandable_card_end(tui_need_ui(vm, (TObj *)self,
                                             "Tphp\\Tui\\App::expandableCardEnd()"));
-        g_expand_on = false;
+        GSTATE->expand_on = false;
     }
     return TV_NULL;
 }

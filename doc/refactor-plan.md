@@ -62,7 +62,7 @@ C = 文档跟随 B。三阶段各自独立可交付、独立验证，A 不被 B 
 | tui 至今只 include 公开 `cui_app.h` | 全部 `src/` | 不引入 CUI 私有头 |
 | `tphp_obj_alloc(cls)` 创建对象 | `TinyPHP.rt/src/class.h:93` | 子对象可从 C 侧返回 |
 | `tui_need_ui` 经 `props["app"]` 取窗口 | `src/tui_util.c:141` | 子对象持同样句柄即可 |
-| 文件级 `g_*` 静态（**2 个文件、10 组**）→ **已 TLS 化** | `tui_layout.c:115-167`（7 组）/ `tui_content.c:304-312,886`（3 组） | `_Thread_local` 只解决**线程**隔离（B.9 已补），**不**解决同线程多窗口交错（见 §7） |
+| 文件级 `g_*` 静态（**2 个文件、10 组**）→ **已迁 per-App state** | 原 `tui_layout.c`/`tui_content.c` 静态 → 现 `TuiLayoutState`/`TuiContentState` struct 存域对象 state 槽（见 §5 B.10） | 同时解决线程隔离与同线程多窗口交错（各 App 的域子对象各持 state） |
 | 6 个类各有/可复用注册函数 | `tui_*.c` 末尾（`tui.c` 的 App 注册已存在） | 改造点收敛；5 个域类复用现有注册函数，`App` 用现有 `tui_register_app_class` |
 
 ## 3. 类划分
@@ -181,8 +181,19 @@ A 不被 B 阻塞——已先交付 A 拿到真 bug 修复，B 可视需要择�
 - [x] **B.9** 10 组文件级静态补 `_Thread_local`（决策反转后完成，理由见上方 A.2 说明）：
       `tui_layout.c`（split_ratio / 13 个 `g_*_on` / reorder / swipe×3 / tcols×2 /
       gcols×2 / tnodes）与 `tui_content.c`（terminal×4 / log×4 / nodeed_on）。
-      **仅隔离线程，不隔离同线程多窗口交错**（后者仍是 §7 已知限制）。
       实测编译通过、10/10 冒烟 + 引擎 29 passed。
+- [x] **B.10** 10 组静态整体迁入 **per-App state**（根治同线程多窗口串扰）：
+      - `tui_util.h` 定义 `TuiLayoutState`（SCOPE_IF 标记/借阅数组）与
+        `TuiContentState`（terminal/log/nodeEditor）；域对象加 `state` 私有槽存 struct 指针，
+        `tui_state_get` 懒分配、`tui_state_free` 在域类 `native_dtor` 释放内部数组与 struct
+        （terminal/log 的 malloc 缓冲也随此释放，修掉原本进程级单例的泄漏点）。
+      - 所有域方法经 `GSTATE` 宏从 `self`（域对象）取 state，不再读文件级静态。
+        ScopeIf 检查/清理函数改接收域对象，从 App 的 dom0/dom4 槽取。
+      - 实测：编译通过；`tests/smoke-multiwindow.php` 验证 App1 的 dialog 残留不污染
+        App2、且 App1 仍能检出自己的残留、两窗口 terminal 缓冲独立；
+        `smoke-multiwindow.php` 通过后全套 11/11 冒烟 + 引擎 29 passed，0 回归。
+      - 边界：CUI 的 `frame()` 第二次起阻塞等事件，**交错 frame 两个窗口**需输入注入、
+        属平台事件循环范畴，未在本测覆盖；本测验证的是状态隔离本身。
 
 ### 阶段 C：文档重写（跟随 B 完成）
 
@@ -194,7 +205,7 @@ A 不被 B 阻塞——已先交付 A 拿到真 bug 修复，B 可视需要择�
 | 阶段 | 检查项 | 方法 | 通过标准 |
 |---|---|---|---|
 | A/B/C | 编译 | `clang -c` 每个改动文件 | 零 warning（已实测重链成功） |
-| A/B/C | 冒烟 | `tests\run.ps1` | **10/10 PASS**（原 7 + scopeif + domain + depth，已实测） |
+| A/B/C | 冒烟 | `tests\run.ps1` | **11/11 PASS**（原 7 + scopeif + domain + depth + multiwindow，已实测） |
 | A/B/C | 引擎 | `tphp.exe test tests\lib` | 29 passed |
 | A/B/C | 编译真实性 | 重链后确认无 `compile failed` | **曾踩坑**：早期编译失败但输出被吞，跑的是旧二进制——现已核对重链输出 |
 | **A** | SCOPE_IF 漏 End（14 对） | `tests/smoke-scopeif.php` | 抛 `Error` 含配对名；关态无误报。**已实现** |
@@ -202,7 +213,8 @@ A 不被 B 阻塞——已先交付 A 拿到真 bug 修复，B 可视需要择�
 | **B** | 类注册 | 静态统计 + 运行时探针 | 6 类；App 36 业务方法+ctor、Layout 123/Form 33/Widgets 39/Charts 21/Content 66；add_native 总 319（每方法一次） |
 | **B** | 容器失配（LayoutType 5 种） | `tests/smoke-depth.php` | 漏 End/多 End 抛 Error、配对无误报。**已实现** |
 | **B** | App 精简 | 运行时探针 | `$app->checkbox()` 抛 Error、`$app->form()->checkbox()` 可用。**已实测** |
-| A/B/C | CJK 回归 | `smoke.php` 断行断言 | 仍 PASS（10/10 含此） |
+| **B** | 多窗口状态隔离 | `tests/smoke-multiwindow.php` | A 残留不污染 B、A 仍检出自身残留、两窗口 terminal 缓冲独立。**已实现** |
+| A/B/C | CJK 回归 | `smoke.php` 断行断言 | 仍 PASS（11/11 含此） |
 
 ## 7. 风险与对策
 
@@ -211,7 +223,7 @@ A 不被 B 阻塞——已先交付 A 拿到真 bug 修复，B 可视需要择�
 | 缓存槽与 props 布局冲突 | 按名查找（`tphp_class_find_prop`），不硬编码槽号 |
 | 子对象在 `destroy()` 后使用 | `tui_need_ui` 已有 "window is already destroyed" 抛错 |
 | `Layout::end()` 对 scroll 误调 `cui_box_end` | 按 `LayoutType` 分派，补专测 |
-| 注册语句迁移易漏 | 283 方法从 App 摘除、5 个用 bridge 挂域类；实测 add_native 319、10/10 全绿 |
+| 注册语句迁移易漏 | 283 方法从 App 摘除、5 个用 bridge 挂域类；实测 add_native 319、11/11 全绿 |
 | 跨 Layout 实例误配检测不到 | 记为已知限制；每实例独立 depth 计数已覆盖主要误用 |
 | **编译失败被吞 → 跑旧二进制假绿** | 曾踩坑：PowerShell 管道把 `compile failed` 当普通错误流，误判成功。
   对策：重链后必须确认输出含 `Linked N ext package(s)` 且无 `compile failed`，
@@ -220,10 +232,12 @@ A 不被 B 阻塞——已先交付 A 拿到真 bug 修复，B 可视需要择�
 | Layout 漏 End 视觉错乱 | depth 配平检测（§5.B.4）；失配即报「window corrupted」，因 CUI node 栈失衡不可恢复，
   须销毁重建实例；专测每场景独立 App |
 | 建子对象时引用计数错配致 UAF | alloc rc=1 归 native 返回值、不再 addref（`vm.c:1587-1590`）；多存一处各加 1（反面 `worker.c:693-700`）；写 props 用 `addref(new)/release(old)/slot=new`；native_dtor 手动 release 后须改写槽为 NULL（`tui.c:50-54`） |
-| 同线程多窗口交错画同类型容器 | `_Thread_local` **不覆盖此场景**；文件级 `g_*_on` 仍进程共享。
-  缓解：域对象经各自 App 派生，但静态标记按窗口归属是 TODO。当前
-  `smoke.php` 两窗口是顺序绘制（非交错），不触发；记为已知限制，
-  真要支持并行多窗口需把 10 组静态改为 per-App 状态（不在本版范围） |
+| ~~同线程多窗口状态串扰~~ **已解决（B.10）** | 10 组静态迁入 per-App state（域对象私有槽），
+  各 App 的 Layout/Content 子对象各持一份。`smoke-multiwindow.php` 验证残留隔离与缓冲独立。
+  遗留边界：交错 frame 两窗口需输入注入唤醒 `cui_app_frame`，属平台事件循环范畴，未覆盖 |
+| state struct 释放时机 | 域对象 `native_dtor` 调 `tui_state_free`：先 `fn(state)` 释放内部数组
+  （reorder/swipe/cols/term/log），再 free struct 并置槽 0 防二次释放；
+  正常配对下 End 已回收数组，dtor 仅兜底异常中断/漏 End 的泄漏 |
 
 ## 8. 假设
 
@@ -234,7 +248,8 @@ A 不被 B 阻塞——已先交付 A 拿到真 bug 修复，B 可视需要择�
    但 SCOPE_IF 14 对仍须纳入失配检测（§5.A.1）
 4. 阶段 B 有破坏性（旧 API 已移除，测试/示例必须同步迁移）；若只要 bug 修复，
    交付阶段 A 即可停止
-5. 并行多窗口（同线程交错绘制）不在本版范围，10 组文件级静态仍进程共享（§7）
+5. 状态已 per-App 隔离（B.10），并行多窗口不再串扰；但**交错 frame**
+   （两个窗口交替调用 `frame()`）受 CUI 事件循环阻塞限制，不在本版范围（§7）
 6. 域方法实现可留在原 C 文件（tui.c 的 5 个桥接方法），仅**注册位置**按语义归域；
    不要求物理迁移 .c 文件
 
@@ -251,7 +266,7 @@ A 不被 B 阻塞——已先交付 A 拿到真 bug 修复，B 可视需要择�
    ```powershell
    # cwd = tui 包根
    powershell -ExecutionPolicy Bypass -File tests\run.ps1
-   # 期望 10/10 PASS（原 7 + scopeif + domain + depth 探针）
+   # 期望 11/11 PASS（原 7 + scopeif + domain + depth + multiwindow 探针）
    ```
 3. 若 `build/tphp.exe` 与源码不同步，先重链：
    ```powershell
@@ -270,9 +285,10 @@ A 不被 B 阻塞——已先交付 A 拿到真 bug 修复，B 可视需要择�
   Form 33、Widgets 39（含桥接 2）、Charts 21、Content 66。总 add_native 319（每方法一次）。
   原始基线是 App 314 方法。旧 API 已从 App 移除，测试/示例全部改用新 API。
 - 三个枚举：`ButtonVariant`(7)、`FontRole`(5)、`LayoutType`(5)
-- 冒烟 **10/10 PASS**（原 7 + scopeif + domain + depth），引擎 29 passed
+- 冒烟 **11/11 PASS**（原 7 + scopeif + domain + depth + multiwindow），引擎 29 passed
 - 已有 CJK 支持：`fontLoad`/`fontLoadSystem`/`fontSetRole`/`fontAddFallback`
   + CUI 断行 CJK 处理（`cui_text.c`）
 - 阶段 C 已完成：README.md / API.md（6 类分组 + 3 枚举）/ coverage.md 均已更新到终态
-- B.9 TLS 已完成（10 组静态 `_Thread_local`；决策反转理由见 §5 A.2 说明）
-- 全部计划项已完成；剩余仅 §7 的已知限制（同线程多窗口交错，不在本版范围）
+- B.9 TLS 已完成（决策反转理由见 §5 A.2）；B.10 又把 10 组静态迁入 per-App state，
+  线程与多窗口隔离一并解决，§7 的串扰限制已消除
+- 全部计划项（A/B.1-B.10/C）已完成；剩余仅"交错 frame 需事件注入"的平台边界

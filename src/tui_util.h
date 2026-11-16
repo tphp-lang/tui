@@ -70,16 +70,16 @@ cui_app *tui_app_of(TObj *o);                    /* 取句柄；已销毁返回 
 cui_app *tui_need_app(VM *vm, TObj *o, const char *who);  /* NULL 则抛 Error */
 cui_ctx *tui_need_ui(VM *vm, TObj *o, const char *who);   /* 同上，取绘制上下文 */
 
-/* ---- SCOPE_IF 失配检测（阶段 A）----
- * 各域导出本域未闭合的 begin 名（PHP 侧 <name>Begin），全闭合返回 NULL。
- * tui_scopeif_unclosed 汇总所有域；frame() 入口调用，有残留抛 Error。
- * 与 g_*_on 守卫共用同一批标记，不另建计数。 */
-const char *tui_layout_scopeif_unclosed(void);
-const char *tui_content_scopeif_unclosed(void);
-void tui_layout_scopeif_clear(void);
-void tui_content_scopeif_clear(void);
-const char *tui_scopeif_unclosed(void);
-void tui_scopeif_clear(void);   /* destroy 时清残留，避免污染下一个 App 实例 */
+/* ---- SCOPE_IF 失配检测（阶段 A；per-App 化后接收域对象）----
+ * 各域从自己的 state 读未闭合标记，返回 PHP begin 名，全闭合返回 NULL。
+ * tui_scopeif_unclosed(app) 从 App 的 dom0/dom4 槽取 Layout/Content 子对象再汇总；
+ * frame() 入口调用，有残留抛 Error。若域对象尚未创建则视为无残留。 */
+const char *tui_layout_scopeif_unclosed(TObj *layout);
+const char *tui_content_scopeif_unclosed(TObj *content);
+void tui_layout_scopeif_clear(TObj *layout);
+void tui_content_scopeif_clear(TObj *content);
+const char *tui_scopeif_unclosed(TObj *app);
+void tui_scopeif_clear(TObj *app);   /* destroy 时清残留 */
 
 /* ---- 类构建 / 注册（teb 同款模式；各域共用） ---- */
 TClass *tui_cls_new(const char *fqcn);            /* CK_CLASS，全 -1 魔法方法槽 */
@@ -116,5 +116,38 @@ int64_t *tui_ints(VM *vm, TVal *v, const char *who, const char *pname, int *n);
 bool *tui_bools(VM *vm, TVal *v, const char *who, const char *pname, int *n);
 void tui_strs_free(char **a, int n);   /* 逐项 + 数组本身；a 可为 NULL */
 void tui_arr_free(void *p);            /* float/int/bool 数组统一释放；p 可为 NULL */
+
+/* ---- per-App 域状态（替代文件级静态，消除同线程多窗口交错串扰）----
+ * 每个域对象（Layout/Content，由 App 缓存）持一个 state 私有槽（TV_INT 存指针），
+ * 首次使用时懒分配，域对象析构（native_dtor）时统一释放其内部数组与 struct。
+ * 这样两个 App 交错画同类型容器时状态互不相干。 */
+typedef struct {
+    /* SCOPE_IF begin 标记（13 对） */
+    bool popover_on, menu_on, ctxmenu_on, dialog_on, sheet_on,
+         accordion_on, table_on, tree_on, hover_on, expand_on,
+         usermenu_on, dockpanel_on, datagrid_on;
+    float split_ratio;
+    /* begin→end 借阅的临时数组（begin 分配 / end 回收） */
+    int *reorder; int reorder_n;
+    cui_swipe_action *swipe_l; int swipe_ln;
+    cui_swipe_action *swipe_r; int swipe_rn;
+    char **swipe_strs; int swipe_nstr;
+    cui_table_column *tcols; int tcoln; char **tcol_strs; int tcol_nstr;
+    cui_grid_column *gcols; int gcoln; char **gcol_strs; int gcol_nstr;
+    cui_tree_node *tnodes; int tnoden;
+} TuiLayoutState;
+
+typedef struct {
+    cui_terminal_buffer term_t; char *term_text; cui_terminal_line *term_lines; bool term_ready;
+    cui_log_buffer log_t;       char *log_text;       cui_log_line *log_lines;       bool log_ready;
+    bool nodeed_on;
+} TuiContentState;
+
+/* 取/懒分配域对象的 state 槽；slot 名由各域传入（如 "state"）。
+ * 返回 void*，调用方 cast 为对应 struct*；无槽返回 NULL。 */
+void *tui_state_get(TObj *o, const char *slot, size_t struct_size);
+/* 域对象析构时调用：free 由 fn 指定的内部资源（fn 为 NULL 仅 free struct）。
+ * struct 指针从 slot 读取，释放后置 NULL 防二次释放。 */
+void tui_state_free(TObj *o, const char *slot, void (*fn)(void *state));
 
 #endif /* TUI_UTIL_H */

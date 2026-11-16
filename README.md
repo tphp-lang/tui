@@ -260,8 +260,9 @@ exit($fail ? 1 : 0);
 powershell -ExecutionPolicy Bypass -File tests\run.ps1     # cwd = tui 包根
 ```
 
-10 个冒烟全部 hidden 窗口、自断言、exit code 语义：基本/高级/图表/容器/表单/交互/小件
-（原 7 个）+ `scopeif`（SCOPE_IF 漏 End 检测）+ `domain`（6 类 API）+ `depth`（容器配平）。
+11 个冒烟全部 hidden 窗口、自断言、exit code 语义：基本/高级/图表/容器/表单/交互/小件
+（原 7 个）+ `scopeif`（SCOPE_IF 漏 End 检测）+ `domain`（6 类 API）+ `depth`（容器配平）+
+`multiwindow`（per-App 状态隔离）。
 interaction 用输入注入驱动真实点击（button 返回 true、toggle 翻转、PNG 截图落盘校验）。
 任一失败退出码非 0。
 

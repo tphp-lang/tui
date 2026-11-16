@@ -134,9 +134,9 @@ static TVal nm_app_frame(VM *vm, void *self, TVal *args, int n) {
     /* 阶段 A：上一段若有 SCOPE_IF begin 漏配对 End，node 栈已失衡，
      * 继续渲染会随机 AV（coverage.md §3）。渲染前检出并抛 Error，不静默。
      * 先清标记再抛：一次报告、catch 后可恢复，避免重复抛同一错污染后续帧。 */
-    const char *unclosed = tui_scopeif_unclosed();
+    const char *unclosed = tui_scopeif_unclosed((TObj *)self);
     if (unclosed) {
-        tui_scopeif_clear();
+        tui_scopeif_clear((TObj *)self);
         RAISE(vm, "Error", "%s: unclosed scope from previous frame: %s() without matching End()",
               WHO_FRAME, unclosed);
     }
@@ -190,7 +190,7 @@ static TVal nm_app_destroy(VM *vm, void *self, TVal *args, int n) {
     TObj *o = (TObj *)self;
     cui_app *a = tui_app_of(o);
     if (a) {
-        tui_scopeif_clear();      /* 清 SCOPE_IF 残留，避免污染下一实例 */
+        tui_scopeif_clear(o);      /* 清 SCOPE_IF 残留，避免污染下一实例 */
         domain_release_all(o);    /* 阶段 B：释放 5 个域子对象引用 */
         cui_app_destroy(a);
         app_set(o, NULL);
@@ -202,7 +202,7 @@ static TVal nm_app_destroy(VM *vm, void *self, TVal *args, int n) {
 static void app_native_dtor(TObj *o) {
     cui_app *a = tui_app_of(o);
     if (a) {
-        tui_scopeif_clear();
+        tui_scopeif_clear(o);
         cui_app_destroy(a);
         app_set(o, NULL);
     }
@@ -466,12 +466,23 @@ typedef void (*DomainRegFn)(TClass *);
 
 extern void tui_register_core_bridge_layout(TClass *cls);
 extern void tui_register_core_bridge_widgets(TClass *cls);
+extern void tui_layout_state_free(void *p);
+extern void tui_content_state_free(void *p);
+
+/* native_dtor 签名是 void(TObj*)，经 tui_state_free 适配到 void(void*) 的 state_free */
+static void layout_dtor(TObj *o) { tui_state_free(o, "state", tui_layout_state_free); }
+static void content_dtor(TObj *o) { tui_state_free(o, "state", tui_content_state_free); }
 
 static TClass *tui_build_domain_class(const char *fqcn, DomainRegFn reg,
-                                      DomainRegFn bridge, bool with_depth) {
+                                      DomainRegFn bridge, bool with_depth,
+                                      void (*dtor)(TObj *)) {
     TClass *cls = tui_cls_new(fqcn);
     tui_cls_add_prop(cls, "app");
     if (with_depth) tui_cls_add_prop(cls, "depth");   /* Layout 容器配平计数 */
+    if (dtor) {
+        tui_cls_add_prop(cls, "state");              /* per-App 状态 struct 指针 */
+        cls->native_dtor = dtor;
+    }
     reg(cls);
     if (bridge) bridge(cls);   /* tui.c 里按语义归属本域的桥接方法 */
     tphp_class_register_compile(cls);
@@ -479,11 +490,11 @@ static TClass *tui_build_domain_class(const char *fqcn, DomainRegFn reg,
 }
 
 static void tui_register_domain_classes(void) {
-    g_layout_cls  = tui_build_domain_class("Tphp\\Tui\\Layout",  tui_register_layout,  tui_register_core_bridge_layout, true);
-    g_form_cls    = tui_build_domain_class("Tphp\\Tui\\Form",    tui_register_form,    NULL, false);
-    g_widgets_cls = tui_build_domain_class("Tphp\\Tui\\Widgets", tui_register_widgets, tui_register_core_bridge_widgets, false);
-    g_charts_cls  = tui_build_domain_class("Tphp\\Tui\\Charts",  tui_register_charts,  NULL, false);
-    g_content_cls = tui_build_domain_class("Tphp\\Tui\\Content", tui_register_content, NULL, false);
+    g_layout_cls  = tui_build_domain_class("Tphp\\Tui\\Layout",  tui_register_layout,  tui_register_core_bridge_layout, true,  layout_dtor);
+    g_form_cls    = tui_build_domain_class("Tphp\\Tui\\Form",    tui_register_form,    NULL, false, NULL);
+    g_widgets_cls = tui_build_domain_class("Tphp\\Tui\\Widgets", tui_register_widgets, tui_register_core_bridge_widgets, false, NULL);
+    g_charts_cls  = tui_build_domain_class("Tphp\\Tui\\Charts",  tui_register_charts,  NULL, false, NULL);
+    g_content_cls = tui_build_domain_class("Tphp\\Tui\\Content", tui_register_content, NULL, false, content_dtor);
 }
 
 /* 域访问器用的类模板查表；which: 0=Layout 1=Form 2=Widgets 3=Charts 4=Content */

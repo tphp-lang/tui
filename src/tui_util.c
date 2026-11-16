@@ -161,18 +161,32 @@ cui_ctx *tui_need_ui(VM *vm, TObj *o, const char *who) {
  * 遍历各域的未闭合 begin 标记，返回第一个仍为 true 的 PHP begin 名；
  * 全闭合返回 NULL。frame() 在渲染上一段之前调用，残留即意味着上一段
  * 漏写 xxxEnd()，继续渲染会令 node 栈失衡而随机 AV（coverage.md §3）。 */
-const char *tui_scopeif_unclosed(void) {
-    const char *n = tui_layout_scopeif_unclosed();
-    if (n) return n;
-    return tui_content_scopeif_unclosed();
+/* 从 App 的 dom 槽取域子对象（未创建返回 NULL） */
+static TObj *app_domain(TObj *app, const char *slot) {
+    int s = tphp_class_find_prop(app->cls, slot);
+    if (s < 0) return NULL;
+    TVal v = app->props[s];
+    return (v.t == T_OBJ && v.u.p) ? (TObj *)v.u.p : NULL;
 }
 
-/* destroy() 时清残留：避免本实例的未闭合标记污染下一个 App 实例 */
-void tui_scopeif_clear(void) {
-    /* 逐域清理由各域导出；此处仅调用汇总清理由各域函数完成。
-     * 当前实现见 tui_layout.c / tui_content.c 的同名 helper。 */
-    tui_layout_scopeif_clear();
-    tui_content_scopeif_clear();
+const char *tui_scopeif_unclosed(TObj *app) {
+    TObj *layout = app_domain(app, "dom0");
+    if (layout) {
+        const char *n = tui_layout_scopeif_unclosed(layout);
+        if (n) return n;
+    }
+    TObj *content = app_domain(app, "dom4");
+    if (content) return tui_content_scopeif_unclosed(content);
+    return NULL;
+}
+
+/* destroy() 时清残留：避免本实例的未闭合标记污染（per-App 后各实例独立，
+ * 此清理仅为 destroy 后再用 state 时的一致性） */
+void tui_scopeif_clear(TObj *app) {
+    TObj *layout = app_domain(app, "dom0");
+    if (layout) tui_layout_scopeif_clear(layout);
+    TObj *content = app_domain(app, "dom4");
+    if (content) tui_content_scopeif_clear(content);
 }
 
 /* ---- 类构建 / 注册 ---- */
@@ -219,6 +233,28 @@ TObj *tui_make_child(VM *vm, TObj *parent, TClass *cls) {
         child->props[cs] = parent->props[ps];   /* TV_INT 标量，值拷贝 */
     }
     return child;   /* rc=1 归调用方 */
+}
+
+/* ---- per-App 域状态 ---- */
+void *tui_state_get(TObj *o, const char *slot, size_t struct_size) {
+    int s = tphp_class_find_prop(o->cls, slot);
+    if (s < 0) return NULL;   /* 无槽：调用方需保证域类已声明 state */
+    if (o->props[s].t == T_INT && o->props[s].u.i != 0)
+        return (void *)(intptr_t)o->props[s].u.i;
+    void *p = tm_malloc(struct_size);
+    memset(p, 0, struct_size);
+    o->props[s] = TV_INT((int64_t)(intptr_t)p);
+    return p;
+}
+
+void tui_state_free(TObj *o, const char *slot, void (*fn)(void *state)) {
+    int s = tphp_class_find_prop(o->cls, slot);
+    if (s < 0) return;
+    if (o->props[s].t != T_INT || o->props[s].u.i == 0) return;
+    void *p = (void *)(intptr_t)o->props[s].u.i;
+    if (fn) fn(p);
+    tm_free(p);
+    o->props[s] = TV_INT(0);   /* 防二次释放 */
 }
 
 int tui_prop_int(TObj *o, const char *name) {

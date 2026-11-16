@@ -299,17 +299,17 @@ static TVal nm_hex_view_goto(VM *vm, void *self, TVal *args, int n) {
     return TV_NULL;
 }
 
-/* ---- 终端 / 日志（单例缓冲，init 重建；存储由本包持有） ---- */
+/* ---- 终端 / 日志 / 节点编辑器（per-App 状态，存于 Content 子对象 state 槽）----
+ * 所有方法均有 self 参数（域对象），宏 GSTATE 从 self 取 state。 */
+#define GSTATE ((TuiContentState *)tui_state_get((TObj *)self, "state", sizeof(TuiContentState)))
 
-static _Thread_local cui_terminal_buffer g_term_t;
-static _Thread_local char *g_term_text;
-static _Thread_local cui_terminal_line *g_term_lines;
-static _Thread_local bool g_term_ready;
-
-static _Thread_local cui_log_buffer g_log_t;
-static _Thread_local char *g_log_text;
-static _Thread_local cui_log_line *g_log_lines;
-static _Thread_local bool g_log_ready;
+/* Content state 析构：释放 terminal/log 缓冲（Init 时 malloc） */
+void tui_content_state_free(void *p) {
+    TuiContentState *S = (TuiContentState *)p;
+    if (!S) return;
+    tm_free(S->term_text); tm_free(S->term_lines);
+    tm_free(S->log_text);  tm_free(S->log_lines);
+}
 
 static TVal nm_terminal_init(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::terminalInit()";
@@ -318,33 +318,33 @@ static TVal nm_terminal_init(VM *vm, void *self, TVal *args, int n) {
     if (text_cap < 256 || line_cap < 16)
         RAISE(vm, "ValueError", "%s(): textCap >= 256 and lineCap >= 16 required", who);
     (void)self;
-    tm_free(g_term_text);
-    tm_free(g_term_lines);
-    g_term_text = tm_malloc((size_t)text_cap);
-    g_term_lines = tm_malloc(sizeof(cui_terminal_line) * (size_t)line_cap);
-    memset(&g_term_t, 0, sizeof g_term_t);
-    cui_terminal_init(&g_term_t, g_term_text, (size_t)text_cap,
-                      g_term_lines, (int)line_cap);
-    g_term_ready = true;
+    tm_free(GSTATE->term_text);
+    tm_free(GSTATE->term_lines);
+    GSTATE->term_text = tm_malloc((size_t)text_cap);
+    GSTATE->term_lines = tm_malloc(sizeof(cui_terminal_line) * (size_t)line_cap);
+    memset(&GSTATE->term_t, 0, sizeof GSTATE->term_t);
+    cui_terminal_init(&GSTATE->term_t, GSTATE->term_text, (size_t)text_cap,
+                      GSTATE->term_lines, (int)line_cap);
+    GSTATE->term_ready = true;
     return TV_NULL;
 }
 
 static TVal nm_terminal_write(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::terminalWrite()";
     (void)self;
-    if (!g_term_ready)
+    if (!GSTATE->term_ready)
         RAISE(vm, "LogicException", "%s(): call terminalInit() first", who);
     const char *s = tui_arg_str(vm, args, n, 0, who);
-    cui_terminal_write(&g_term_t, s, -1);   /* len<0 → strlen */
+    cui_terminal_write(&GSTATE->term_t, s, -1);   /* len<0 → strlen */
     return TV_NULL;
 }
 
 static TVal nm_terminal_clear(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::terminalClear()";
     (void)self;
-    if (!g_term_ready)
+    if (!GSTATE->term_ready)
         RAISE(vm, "LogicException", "%s(): call terminalInit() first", who);
-    cui_terminal_clear(&g_term_t);
+    cui_terminal_clear(&GSTATE->term_t);
     return TV_NULL;
 }
 
@@ -352,10 +352,10 @@ static TVal nm_terminal_clear(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_terminal(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::terminal()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
-    if (!g_term_ready)
+    if (!GSTATE->term_ready)
         RAISE(vm, "LogicException", "%s(): call terminalInit() first", who);
     cui_terminal_result r = cui_terminal_ex(tui_need_ui(vm, (TObj *)self, who),
-                                            id, &g_term_t, NULL);
+                                            id, &GSTATE->term_t, NULL);
     TArr *a = res_new();
     res_str(a, "command", r.command ? r.command : NULL);
     res_bool(a, "interrupt", r.interrupt);
@@ -369,37 +369,37 @@ static TVal nm_log_init(VM *vm, void *self, TVal *args, int n) {
     if (text_cap < 256 || line_cap < 16)
         RAISE(vm, "ValueError", "%s(): textCap >= 256 and lineCap >= 16 required", who);
     (void)self;
-    tm_free(g_log_text);
-    tm_free(g_log_lines);
-    g_log_text = tm_malloc((size_t)text_cap);
-    g_log_lines = tm_malloc(sizeof(cui_log_line) * (size_t)line_cap);
-    memset(&g_log_t, 0, sizeof g_log_t);
-    cui_log_init(&g_log_t, g_log_lines, (int)line_cap,
-                 g_log_text, (size_t)text_cap);
-    g_log_ready = true;
+    tm_free(GSTATE->log_text);
+    tm_free(GSTATE->log_lines);
+    GSTATE->log_text = tm_malloc((size_t)text_cap);
+    GSTATE->log_lines = tm_malloc(sizeof(cui_log_line) * (size_t)line_cap);
+    memset(&GSTATE->log_t, 0, sizeof GSTATE->log_t);
+    cui_log_init(&GSTATE->log_t, GSTATE->log_lines, (int)line_cap,
+                 GSTATE->log_text, (size_t)text_cap);
+    GSTATE->log_ready = true;
     return TV_NULL;
 }
 
 static TVal nm_log_append(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::logAppend()";
     (void)self;
-    if (!g_log_ready)
+    if (!GSTATE->log_ready)
         RAISE(vm, "LogicException", "%s(): call logInit() first", who);
     int64_t level = tui_arg_int(vm, args, n, 0, who, "level");
     const char *text = tui_arg_str(vm, args, n, 1, who);
     if (level < 0 || level >= CUI_LOG_LEVEL_COUNT)
         RAISE(vm, "ValueError", "%s(): level must be in 0..%d", who,
               (int)CUI_LOG_LEVEL_COUNT - 1);
-    cui_log_append(&g_log_t, (cui_log_level)level, "%s", text);
+    cui_log_append(&GSTATE->log_t, (cui_log_level)level, "%s", text);
     return TV_NULL;
 }
 
 static TVal nm_log_clear(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::logClear()";
     (void)self;
-    if (!g_log_ready)
+    if (!GSTATE->log_ready)
         RAISE(vm, "LogicException", "%s(): call logInit() first", who);
-    cui_log_clear(&g_log_t);
+    cui_log_clear(&GSTATE->log_t);
     return TV_NULL;
 }
 
@@ -407,13 +407,13 @@ static TVal nm_log_clear(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_log_view(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::logView()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
-    if (!g_log_ready)
+    if (!GSTATE->log_ready)
         RAISE(vm, "LogicException", "%s(): call logInit() first", who);
     bool timestamps = tui_opt_bool(vm, args, n, 1, false, who, "timestamps");
     cui_log_view_opts o;
     memset(&o, 0, sizeof o);
     o.timestamps = timestamps;
-    cui_log_view_ex(tui_need_ui(vm, (TObj *)self, who), id, &g_log_t, &o);
+    cui_log_view_ex(tui_need_ui(vm, (TObj *)self, who), id, &GSTATE->log_t, &o);
     return TV_NULL;
 }
 
@@ -881,26 +881,28 @@ static TVal nm_signature_clear(VM *vm, void *self, TVal *args, int n) {
 
 /* ---- 节点编辑器 ---- */
 
-/* nodeEditorBegin → false（未开）或 ['x'=>,'y'=>,'zoom'=>]（view 静态跨帧）
- * begin 返回 false 时 CUI 未开编辑器，End 必须跳过（SCOPE_IF 语义）。 */
-static _Thread_local bool g_nodeed_on;
+/* nodeEditorBegin → false（未开）或 ['x'=>,'y'=>,'zoom'=>]（view 跨帧）
+ * begin 返回 false 时 CUI 未开编辑器，End 必须跳过（SCOPE_IF 语义）。
+ * nodeed_on 存于 Content state（per-App）。 */
 
 /* SCOPE_IF 失配检测（阶段 A）：nodeEditor 是本域唯一的 SCOPE_IF 对 */
-const char *tui_content_scopeif_unclosed(void) {
-    return g_nodeed_on ? "nodeEditorBegin/nodeEditorEnd" : NULL;
+const char *tui_content_scopeif_unclosed(TObj *content) {
+    TuiContentState *S = (TuiContentState *)tui_state_get(content, "state", sizeof(TuiContentState));
+    return (S && S->nodeed_on) ? "nodeEditorBegin/nodeEditorEnd" : NULL;
 }
 
-void tui_content_scopeif_clear(void) {
-    g_nodeed_on = false;
+void tui_content_scopeif_clear(TObj *content) {
+    TuiContentState *S = (TuiContentState *)tui_state_get(content, "state", sizeof(TuiContentState));
+    if (S) S->nodeed_on = false;
 }
 
 static TVal nm_node_editor_begin(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::nodeEditorBegin()";
     const char *id = tui_arg_str(vm, args, n, 0, who);
     static cui_node_view view;   /* zeroed = origin/1x */
-    g_nodeed_on = cui_node_editor_begin_ex(tui_need_ui(vm, (TObj *)self, who),
+    GSTATE->nodeed_on = cui_node_editor_begin_ex(tui_need_ui(vm, (TObj *)self, who),
                                            id, &view, NULL);
-    if (!g_nodeed_on) return TV_FALSE;
+    if (!GSTATE->nodeed_on) return TV_FALSE;
     TArr *a = res_new();
     res_float(a, "x", view.x);
     res_float(a, "y", view.y);
@@ -911,10 +913,10 @@ static TVal nm_node_editor_begin(VM *vm, void *self, TVal *args, int n) {
 static TVal nm_node_editor_end(VM *vm, void *self, TVal *args, int n) {
     (void)args;
     (void)n;
-    if (g_nodeed_on) {
+    if (GSTATE->nodeed_on) {
         cui_node_editor_end(tui_need_ui(vm, (TObj *)self,
                                         "Tphp\\Tui\\App::nodeEditorEnd()"));
-        g_nodeed_on = false;
+        GSTATE->nodeed_on = false;
     }
     return TV_NULL;
 }
