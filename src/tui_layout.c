@@ -111,13 +111,13 @@ static TVal open_out(bool v) { return v ? TV_TRUE : TV_FALSE; }
 
 /* ---- 静态借阅缓冲（begin→end 生命周期） ---- */
 
-/* split ratio */
-static float g_split_ratio;
+/* split ratio（B.9：引擎支持 worker 多线程跑 PHP，封装层静态须按线程隔离） */
+static _Thread_local float g_split_ratio;
 
 /* SCOPE_IF 类 begin/end（对应 cui.h 的 CUI__SCOPE_IF 宏）：begin 返回 false
  * 表示 CUI 未开节点，End 必须跳过——无条件 End 会关掉父节点，node 栈失衡，
  * 后续组件读到垃圾 current 索引而 AV（实测崩溃于 cui_accordion_begin）。 */
-static bool g_popover_on, g_menu_on, g_ctxmenu_on, g_dialog_on, g_sheet_on,
+static _Thread_local bool g_popover_on, g_menu_on, g_ctxmenu_on, g_dialog_on, g_sheet_on,
             g_accordion_on, g_table_on, g_tree_on, g_hover_on, g_expand_on,
             g_usermenu_on, g_dockpanel_on, g_datagrid_on;
 
@@ -148,23 +148,23 @@ void tui_layout_scopeif_clear(void) {
 }
 
 /* reorder order */
-static int *g_reorder; static int g_reorder_n;
+static _Thread_local int *g_reorder; static _Thread_local int g_reorder_n;
 
 /* swipe actions（含拷贝的字符串） */
-static cui_swipe_action *g_swipe_l; static int g_swipe_ln;
-static cui_swipe_action *g_swipe_r; static int g_swipe_rn;
-static char **g_swipe_strs; static int g_swipe_nstr;
+static _Thread_local cui_swipe_action *g_swipe_l; static _Thread_local int g_swipe_ln;
+static _Thread_local cui_swipe_action *g_swipe_r; static _Thread_local int g_swipe_rn;
+static _Thread_local char **g_swipe_strs; static _Thread_local int g_swipe_nstr;
 
 /* table columns */
-static cui_table_column *g_tcols; static int g_tcoln;
-static char **g_tcol_strs; static int g_tcol_nstr;
+static _Thread_local cui_table_column *g_tcols; static _Thread_local int g_tcoln;
+static _Thread_local char **g_tcol_strs; static _Thread_local int g_tcol_nstr;
 
 /* dataGrid / treeTable columns */
-static cui_grid_column *g_gcols; static int g_gcoln;
-static char **g_gcol_strs; static int g_gcol_nstr;
+static _Thread_local cui_grid_column *g_gcols; static _Thread_local int g_gcoln;
+static _Thread_local char **g_gcol_strs; static _Thread_local int g_gcol_nstr;
 
 /* treeTable nodes */
-static cui_tree_node *g_tnodes; static int g_tnoden;
+static _Thread_local cui_tree_node *g_tnodes; static _Thread_local int g_tnoden;
 
 static void free_strs(char **a, int n) {
     for (int i = 0; i < n; i++) tm_free(a[i]);

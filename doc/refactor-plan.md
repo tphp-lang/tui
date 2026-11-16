@@ -62,7 +62,7 @@ C = 文档跟随 B。三阶段各自独立可交付、独立验证，A 不被 B 
 | tui 至今只 include 公开 `cui_app.h` | 全部 `src/` | 不引入 CUI 私有头 |
 | `tphp_obj_alloc(cls)` 创建对象 | `TinyPHP.rt/src/class.h:93` | 子对象可从 C 侧返回 |
 | `tui_need_ui` 经 `props["app"]` 取窗口 | `src/tui_util.c:141` | 子对象持同样句柄即可 |
-| 文件级 `g_*` 静态无 TLS（**2 个文件、10 组**） | `tui_layout.c:115-141`（7 组）/ `tui_content.c:304-312,886`（3 组） | 补 `_Thread_local` 只解决**线程**隔离，**不**解决同线程多窗口交错（见 §7） |
+| 文件级 `g_*` 静态（**2 个文件、10 组**）→ **已 TLS 化** | `tui_layout.c:115-167`（7 组）/ `tui_content.c:304-312,886`（3 组） | `_Thread_local` 只解决**线程**隔离（B.9 已补），**不**解决同线程多窗口交错（见 §7） |
 | 6 个类各有/可复用注册函数 | `tui_*.c` 末尾（`tui.c` 的 App 注册已存在） | 改造点收敛；5 个域类复用现有注册函数，`App` 用现有 `tui_register_app_class` |
 
 ## 3. 类划分
@@ -146,10 +146,13 @@ A 不被 B 阻塞——已先交付 A 拿到真 bug 修复，B 可视需要择�
       `tests/smoke-scopeif.php` 专测通过（漏 End 抛错/配对名/可恢复/关态无误报），全套 8/8 全绿。
 
 > **A.2 / A.3 已移入阶段 B**（本次评审决定，2026-11-16）：
-> - **TLS 化（原 A.2）**：核验确认 tui 是主线程阻塞式 API（README「单线程」），
->   CUI 的 `cui__thread_*` 只是聊天绘制样式而非线程模型，引擎 worker.c 不引用 tui——
->   **无真实多线程调用路径**，给 10 组静态补 `_Thread_local` 属预防性优化，暂不做。
->   若 B 阶段引入真正的多线程使用，再随 B 落地，并逐项核对 10 组变量。
+> - **TLS 化（原 A.2）→ 已在 B.9 完成**。决策曾反转：初判「tui 主线程阻塞式、
+>   无多线程路径、暂不做」；**后续深查推翻**——引擎确实支持 worker 多线程跑 PHP
+>  （`ext/worker/worker.c:406` `tphp_vm_run_closure`），且核心大量 `_Thread_local`
+>  （class.c 类表 / mem.c GC 链表 / vm.c 当前 VM）；CUI 本体无进程级全局状态
+>   （状态都在 `cui_ctx`），故 tui 封装层的 10 组 `static g_*` 是**唯一的跨线程共享点**
+>  ——当用户在 worker 线程各建 App 时构成真实数据竞争，非纯预防。遂在 B.9 全部补
+>  `_Thread_local`（tui_layout.c 7 组 + tui_content.c 3 组），实测编译通过、10/10 + 引擎 29 全绿。
 > - **引用计数纪律（原 A.3）**：仅在 B 建子对象时才有落地点，届时随 B 实现；
 >   核验要点已记入 §7 风险表（alloc rc=1 归返回值 / 多存一处各加 1 / dtor 改写槽为 NULL）。
 
@@ -175,8 +178,11 @@ A 不被 B 阻塞——已先交付 A 拿到真 bug 修复，B 可视需要择�
 - [x] **B.8** 精简 `App`：283 个域方法从 App 移除。实测 `$app->checkbox()` 抛 Error、
       `$app->form()->checkbox()` 可用、App 核心 frame/quit 正常。用户否决双 API 并存，
       未采用转发 stub；`__call` 因违反严格 AOT 被排除。
-- [ ] **B.9**（条件项，未做）若引入真正多线程使用，再给 10 组静态补 `_Thread_local`；
-      单线程下无触发场景（理由见阶段 A 的 A.2 移出说明）。
+- [x] **B.9** 10 组文件级静态补 `_Thread_local`（决策反转后完成，理由见上方 A.2 说明）：
+      `tui_layout.c`（split_ratio / 13 个 `g_*_on` / reorder / swipe×3 / tcols×2 /
+      gcols×2 / tnodes）与 `tui_content.c`（terminal×4 / log×4 / nodeed_on）。
+      **仅隔离线程，不隔离同线程多窗口交错**（后者仍是 §7 已知限制）。
+      实测编译通过、10/10 冒烟 + 引擎 29 passed。
 
 ### 阶段 C：文档重写（跟随 B 完成）
 
@@ -268,4 +274,5 @@ A 不被 B 阻塞——已先交付 A 拿到真 bug 修复，B 可视需要择�
 - 已有 CJK 支持：`fontLoad`/`fontLoadSystem`/`fontSetRole`/`fontAddFallback`
   + CUI 断行 CJK 处理（`cui_text.c`）
 - 阶段 C 已完成：README.md / API.md（6 类分组 + 3 枚举）/ coverage.md 均已更新到终态
-- 剩余条件项：B.9 TLS（单线程无触发场景，未做）
+- B.9 TLS 已完成（10 组静态 `_Thread_local`；决策反转理由见 §5 A.2 说明）
+- 全部计划项已完成；剩余仅 §7 的已知限制（同线程多窗口交错，不在本版范围）

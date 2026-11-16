@@ -301,15 +301,15 @@ static TVal nm_hex_view_goto(VM *vm, void *self, TVal *args, int n) {
 
 /* ---- 终端 / 日志（单例缓冲，init 重建；存储由本包持有） ---- */
 
-static cui_terminal_buffer g_term_t;
-static char *g_term_text;
-static cui_terminal_line *g_term_lines;
-static bool g_term_ready;
+static _Thread_local cui_terminal_buffer g_term_t;
+static _Thread_local char *g_term_text;
+static _Thread_local cui_terminal_line *g_term_lines;
+static _Thread_local bool g_term_ready;
 
-static cui_log_buffer g_log_t;
-static char *g_log_text;
-static cui_log_line *g_log_lines;
-static bool g_log_ready;
+static _Thread_local cui_log_buffer g_log_t;
+static _Thread_local char *g_log_text;
+static _Thread_local cui_log_line *g_log_lines;
+static _Thread_local bool g_log_ready;
 
 static TVal nm_terminal_init(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::terminalInit()";
@@ -883,7 +883,7 @@ static TVal nm_signature_clear(VM *vm, void *self, TVal *args, int n) {
 
 /* nodeEditorBegin → false（未开）或 ['x'=>,'y'=>,'zoom'=>]（view 静态跨帧）
  * begin 返回 false 时 CUI 未开编辑器，End 必须跳过（SCOPE_IF 语义）。 */
-static bool g_nodeed_on;
+static _Thread_local bool g_nodeed_on;
 
 /* SCOPE_IF 失配检测（阶段 A）：nodeEditor 是本域唯一的 SCOPE_IF 对 */
 const char *tui_content_scopeif_unclosed(void) {
