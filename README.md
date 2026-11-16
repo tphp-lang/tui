@@ -11,8 +11,9 @@
 ## 链入
 
 ```text
-build\tphp.exe ext --add C:\project\tphp\tui     # 编译 + 重链（换像，下次运行生效）
-build\tphp.exe run example/hello.php             # 交互示例
+# 以下命令在 TinyPHP.rt 仓库根执行（build\ 是其构建输出目录）
+build\tphp.exe ext --add C:\project\tphp\tui                      # 编译 + 重链（换像，下次运行生效）
+build\tphp.exe run C:\project\tphp\tui\example\hello.php          # 交互示例
 ```
 
 POSIX 上为 `./build/tphp ext --add …`。窗口后端按平台分栏（mod.json `os.<平台>.sources`）：
@@ -276,4 +277,4 @@ interaction 用输入注入驱动真实点击（button 返回 true、toggle 翻�
 | `example/dashboard.php` | 指标 + 折线/柱状/环形/仪表 + 表格 |
 | `example/markdown.php` | markdown / codeBlock / jsonView / hexView / diffView |
 
-运行：`build\tphp.exe run example\<name>.php`（POSIX 同理）。
+运行（在 TinyPHP.rt 仓库根执行）：`build\tphp.exe run C:\project\tphp\tui\example\<name>.php`（POSIX 同理）。

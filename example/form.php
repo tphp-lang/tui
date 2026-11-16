@@ -1,7 +1,7 @@
 <?php
 /**
  * tphp/tui 示例：表单控件全集演示
- * 运行：build\tphp.exe run example/form.php
+ * 运行：..\TinyPHP.rt\build\tphp.exe run example/form.php
  */
 $name = "";
 $bio = "";

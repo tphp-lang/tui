@@ -1,7 +1,7 @@
 <?php
 /**
  * tphp/tui 示例：仪表盘（指标 + 图表 + 表格）
- * 运行：build\tphp.exe run example/dashboard.php
+ * 运行：..\TinyPHP.rt\build\tphp.exe run example/dashboard.php
  */
 $week = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 $visits = [120.0, 180.0, 150.0, 210.0, 260.0, 190.0, 170.0];

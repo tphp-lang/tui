@@ -1,7 +1,7 @@
 <?php
 /**
  * tphp/tui 示例：待办清单（列表 + 输入 + 勾选计数）
- * 运行：build\tphp.exe run example/todo.php
+ * 运行：..\TinyPHP.rt\build\tphp.exe run example/todo.php
  */
 $items = ["读一章 TinyPHP 设计文档", "写 tui 扩展的测试"];
 $states = [false, false];

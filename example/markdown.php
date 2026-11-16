@@ -1,7 +1,7 @@
 <?php
 /**
  * tphp/tui 示例：Markdown / 代码块 / JSON 展示
- * 运行：build\tphp.exe run example/markdown.php
+ * 运行：..\TinyPHP.rt\build\tphp.exe run example/markdown.php
  */
 $md = "# TinyPHP tui\n\n"
     . "CUI 1.4.0 的 PHP 封装，立即模式：\n\n"
