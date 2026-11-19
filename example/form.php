@@ -1,8 +1,12 @@
 <?php
+
 /**
  * tphp/tui 示例：表单控件全集演示
  * 运行：..\TinyPHP.rt\build\tphp.exe run example/form.php
  */
+
+use Tphp\Tui\App;
+
 $name = "";
 $bio = "";
 $age = 25.0;
@@ -13,11 +17,15 @@ $tags = "php,tui";
 $rating = 3;
 $theme = 0;
 
-$app = new \Tphp\Tui\App("tui form", 560, 720);
+$app = new App("tui form", 560, 720);
+
+// 中文与 emoji 默认可显（缺字时引擎自动装入系统 CJK / emoji 字体）
 
 while ($app->frame()) {
-    $app->heading("Form gallery");
-    $app->secondary("值由 PHP 持有：每帧传入、取回新值");
+    $app->layout()->scrollBegin("f-scroll");  // 内容超出窗口时出现纵向滚动条
+    $app->layout()->columnBegin(10,10);
+    $app->heading("Form gallery 🎉");
+    $app->secondary("值由 PHP 持有：每帧传入、取回新值 😀");
 
     $app->label("文本");
     $name = $app->form()->input("f-name", $name, 256, ["label" => "姓名", "placeholder" => "请输入"]);
@@ -44,6 +52,8 @@ while ($app->frame()) {
     if ($app->widgets()->button("提交")) {
         $app->layout()->toast("已提交: " . $name . " / age=" . (int)$age . " / agree=" . ($agree ? "Y" : "N"));
     }
+    $app->layout()->boxEnd();
+    $app->layout()->scrollEnd();
 }
 
 $app->destroy();

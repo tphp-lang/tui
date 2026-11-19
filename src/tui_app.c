@@ -46,7 +46,11 @@ static TVal nm_save_png(VM *vm, void *self, TVal *args, int n) {
         tm_free(rgba);
         return TV_FALSE;
     }
-    int ok = cui_write_png(path, rgba, pw, ph, pw * 4);
+    /* 输出必须用真实渲染尺寸与行距：cui_app_screenshot 按 dd->width_px 连续写入，
+     * 而 buffer 宽 pw 含 1px 余量，用 pw 当 stride 会逐行错位 */
+    const cui_draw_data *dd = cui_get_draw_data(ui);
+    int w = dd->width_px, h = dd->height_px;
+    int ok = (w > 0 && h > 0) ? cui_write_png(path, rgba, w, h, w * 4) : 0;
     tm_free(rgba);
     return ok ? TV_TRUE : TV_FALSE;
 }
@@ -70,11 +74,14 @@ static TVal nm_screenshot_rgba(VM *vm, void *self, TVal *args, int n) {
         tm_free(rgba);
         RAISE(vm, "LogicException", "%s: screenshot buffer rejected", who);
     }
-    TStr *s = tstr_new((const char *)rgba, bytes);
+    /* 同 savePng：真实尺寸与行距取自 draw_data，buffer 的 1px 余量不进输出 */
+    const cui_draw_data *dd = cui_get_draw_data(ui);
+    int w = dd->width_px, h = dd->height_px;
+    TStr *s = tstr_new((const char *)rgba, (size_t)w * (size_t)h * 4);
     tm_free(rgba);
     TArr *a = tarr_new();
-    tarr_set(a, TV_STR(tstr_new("w", 1)), TV_INT(pw));
-    tarr_set(a, TV_STR(tstr_new("h", 1)), TV_INT(ph));
+    tarr_set(a, TV_STR(tstr_new("w", 1)), TV_INT(w));
+    tarr_set(a, TV_STR(tstr_new("h", 1)), TV_INT(h));
     tarr_set(a, TV_STR(tstr_new("data", 4)), TV_STR(s));
     return TV_ARR(a);
 }
@@ -236,17 +243,18 @@ static TVal nm_last_rect(VM *vm, void *self, TVal *args, int n) {
     return TV_ARR(a);
 }
 
-/* ---- 字体：CJK 字形加载 ----
- * 内嵌的 Inter/Geist 是拉丁子集（实测汉字覆盖率 0/20992），汉字命中 .notdef
- * 渲染成豆腐块。CUI 的 cui__find_glyph 在 fallback 链走完后会遍历 ui->fonts[]
- * 全部已加载字体，所以只要把一个含 CJK 字形的字体装进 ui->fonts[]，中文即可
- * 显示——不必改内嵌字体。
+/* ---- 字体 ----
+ * 内嵌的 Inter/Geist 是拉丁子集（实测汉字覆盖率 0/20992）。中文与 emoji 已默认
+ * 支持，无需调用方做任何事：汉字缺字时 cui__find_glyph 会自动装入系统 CJK 字体
+ * （雅黑/苹方/Noto CJK，cui 层 cui_font_load_system_cjk，每上下文一次）；emoji
+ * 由文本管线整段交给 emoji 子系统（自动加载 Segoe UI Emoji 等彩色字体）。
+ * 以下接口留给需要自定义字体/显式控制的场景：
  *
  * fontLoad(path)            → 加载 .ttf/.otf/.ttc（ttc 取第 0 个 face），返回 id
- * fontLoadSystem([path])    → 按平台探测常见 CJK 系统字体并加载（失败返回 -1）
+ * fontLoadSystem([path])    → 无参 = 系统 CJK 字体（与自动加载共用同一缓存 id）；
+ *                              给了 path 就加载它；失败返回 -1（与 cui_font_load_file 一致），不抛
  * fontSetRole(role, font)   → 让某个 role（FontRole::Body 等）改用该字体
- * fontAddFallback(f, fb)    → f 缺字时回退到 fb
- * 顺序建议：$f = fontLoadSystem(); fontAddFallback(FontRole::Body, $f);  逐个 role 挂。 */
+ * fontAddFallback(f, fb)    → f 缺字时回退到 fb */
 
 static TVal nm_font_load(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::fontLoad()";
@@ -258,63 +266,18 @@ static TVal nm_font_load(VM *vm, void *self, TVal *args, int n) {
     return TV_INT((int64_t)f);
 }
 
-/* 各平台常见中文字体候选（按优先级；第一条存在的就用）。
- * Windows: 微软雅黑（ttc 第 0 face = Regular）→ 黑体 → 等线 → 宋体
- * macOS:   苹方 → 华文黑体
- * Linux:   Noto CJK / 文泉驿 / Droid Sans Fallback */
-static const char *font_system_candidates(void) {
-#if defined(_WIN32)
-    static char buf[512];
-    const char *win = getenv("WINDIR");
-    static const char *const rel[] = {
-        "\\Fonts\\msyh.ttc", "\\Fonts\\msyh.ttf", "\\Fonts\\simhei.ttf",
-        "\\Fonts\\Deng.ttf", "\\Fonts\\simsun.ttc",
-        "\\Fonts\\msyhl.ttc", "\\Fonts\\simkai.ttf",
-    };
-    for (size_t i = 0; i < sizeof rel / sizeof rel[0]; i++) {
-        snprintf(buf, sizeof buf, "%s%s", win ? win : "C:\\Windows", rel[i]);
-        FILE *f = fopen(buf, "rb");
-        if (f) { fclose(f); return buf; }
-    }
-    return NULL;
-#elif defined(__APPLE__)
-    static const char *const p[] = {
-        "/System/Library/Fonts/PingFang.ttc",
-        "/System/Library/Fonts/STHeiti Light.ttc",
-        "/Library/Fonts/Arial Unicode.ttf",
-    };
-    for (size_t i = 0; i < sizeof p / sizeof p[0]; i++) {
-        FILE *f = fopen(p[i], "rb");
-        if (f) { fclose(f); return p[i]; }
-    }
-    return NULL;
-#else
-    static const char *const p[] = {
-        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf",
-        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
-        "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
-        "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc",
-    };
-    for (size_t i = 0; i < sizeof p / sizeof p[0]; i++) {
-        FILE *f = fopen(p[i], "rb");
-        if (f) { fclose(f); return p[i]; }
-    }
-    return NULL;
-#endif
-}
-
-/* fontLoadSystem([path])：无参 = 按平台探测；给了 path 就用它。
- * 加载失败返回 -1（与 cui_font_load_file 一致），不抛——调用方自行决定。 */
+/* fontLoadSystem([path])：无参 = 系统 CJK 字体（平台探测，与缺字自动加载共用
+ * 缓存，重复调用返回同一 id）；给了 path 就加载它。失败返回 -1（与
+ * cui_font_load_file 一致），不抛——调用方自行决定。 */
 static TVal nm_font_load_system(VM *vm, void *self, TVal *args, int n) {
     const char *who = "Tphp\\Tui\\App::fontLoadSystem()";
     cui_ctx *ui = tui_need_ui(vm, (TObj *)self, who);
-    const char *path = n >= 1 ? tui_opt_str(vm, args, n, 0, NULL, who, "path")
-                              : font_system_candidates();
-    if (!path || !path[0]) return TV_INT(-1);
-    return TV_INT((int64_t)cui_font_load_file(ui, path));
+    if (n >= 1) {
+        const char *path = tui_opt_str(vm, args, n, 0, NULL, who, "path");
+        if (!path || !path[0]) return TV_INT(-1);
+        return TV_INT((int64_t)cui_font_load_file(ui, path));
+    }
+    return TV_INT((int64_t)cui_font_load_system_cjk(ui));
 }
 
 static TVal nm_font_set_role(VM *vm, void *self, TVal *args, int n) {

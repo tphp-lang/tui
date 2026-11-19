@@ -380,6 +380,7 @@ enum {
  * Returns a font id, or -1 on failure. */
 CUI_API cui_font cui_font_load_memory(cui_ctx *ui, const void *data, size_t size, bool copy);
 CUI_API cui_font cui_font_load_file(cui_ctx *ui, const char *path);
+CUI_API cui_font cui_font_load_system_cjk(cui_ctx *ui);   /* the platform's CJK font, probed and loaded once per context (-1 = none) */
 /* Replace one of the built-in roles (e.g. use your brand font as CUI_FONT_BODY). */
 CUI_API void cui_font_set_role(cui_ctx *ui, cui_font role, cui_font font);
 /* Glyphs missing from `font` are looked up in `fallback` (e.g. CJK, emoji). */

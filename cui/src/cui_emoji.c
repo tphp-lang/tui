@@ -748,7 +748,7 @@ static int cui__em_get_slot(cui_ctx *ui, cui__emoji *e, const char *utf8, int le
 }
 
 /* draws at r; false when the emoji cannot be drawn (missing, or not ready yet) */
-static bool cui__em_draw(cui_ctx *ui, const char *utf8, int len, cui_rect r, float alpha, bool *missing) {
+bool cui__em_draw(cui_ctx *ui, const char *utf8, int len, cui_rect r, float alpha, bool *missing) {
     bool miss = false;
     if (missing) *missing = false;
     if (!cui__em_can_draw(ui)) { if (missing) *missing = true; return false; }
@@ -779,6 +779,57 @@ bool cui_emoji_supported(cui_ctx *ui, const char *utf8, int len) {
     if (len < 0) len = (int)strlen(utf8);
     cui__emoji *e = ui->emoji;
     return e->loaded ? cui__em_glyph(e, utf8, len) != 0 : true;
+}
+
+/* ---- inline emoji in text (called by cui_text.c) ---- */
+
+/* the code point can start an emoji: quick reject before touching the font */
+static bool cui__em_base(uint32_t cp) {
+    return (cp >= 0x1F000 && cp <= 0x1FAFF) ||      /* emoticons, flags, symbols & pictographs, extended */
+           (cp >= 0x2600 && cp <= 0x27BF) ||        /* misc symbols, dingbats */
+           (cp >= 0x2B00 && cp <= 0x2BFF) ||        /* stars, arrows in squares */
+           (cp >= 0x2300 && cp <= 0x23FF) ||        /* clocks, media control */
+           (cp >= 0x2194 && cp <= 0x2199) ||        /* arrows with emoji presentation */
+           (cp >= 0x21A9 && cp <= 0x21AA) ||
+           (cp >= 0x2934 && cp <= 0x2935) ||
+           cp == 0x00A9 || cp == 0x00AE || cp == 0x203C || cp == 0x2049 ||
+           cp == 0x2122 || cp == 0x2139 || cp == 0x24C2 ||
+           (cp >= 0x25AA && cp <= 0x25AB) || cp == 0x25B6 || cp == 0x25C0 ||
+           (cp >= 0x25FB && cp <= 0x25FE) ||
+           cp == 0x3030 || cp == 0x303D || cp == 0x3297 || cp == 0x3299;
+}
+
+/* Byte length of the drawable emoji sequence starting at s (0 = none): the base
+ * plus joiners, variation selectors, skin tones, tags — one unit for the text
+ * pipeline, so wrapping and ellipsis never cut a sequence apart. */
+int cui__em_seq_len(cui_ctx *ui, const char *s, int len) {
+    if (!ui || !s || len <= 0) return 0;
+    uint32_t cp; int k = cui__utf8_decode(s, len, &cp);
+    bool keycap = false;
+    if (cp == '#' || cp == '*' || (cp >= '0' && cp <= '9')) {          /* "1️⃣" keycap sequence */
+        if (k < len) {
+            uint32_t c1; int k1 = cui__utf8_decode(s + k, len - k, &c1);
+            keycap = c1 == 0xFE0F || c1 == 0x20E3;
+            (void)k1;
+        }
+    }
+    if (!keycap && !cui__em_base(cp)) return 0;
+    uint32_t cps[24];
+    int n = 0, used = 0;
+    cps[n++] = cp; used = k;
+    while (n < 24 && used < len) {
+        uint32_t c2; int k2 = cui__utf8_decode(s + used, len - used, &c2);
+        uint32_t prev = cps[n - 1];
+        bool cont = c2 == 0x200D || c2 == 0xFE0F || c2 == 0x20E3 ||        /* ZWJ, VS16, keycap */
+                    (c2 >= 0x1F3FB && c2 <= 0x1F3FF) ||                    /* skin tones */
+                    (c2 >= 0xE0020 && c2 <= 0xE007F) ||                    /* tag characters */
+                    (prev == 0x200D && cui__em_base(c2)) ||                /* joined after ZWJ */
+                    (n == 1 && c2 >= 0x1F1E6 && c2 <= 0x1F1FF &&           /* flag: exactly two */
+                     cps[0] >= 0x1F1E6 && cps[0] <= 0x1F1FF);              /* regional indicators */
+        if (!cont) break;
+        cps[n++] = c2; used += k2;
+    }
+    return cui_emoji_supported(ui, s, used) ? used : 0;
 }
 
 typedef struct { char s[32]; int len; } cui__em_one;

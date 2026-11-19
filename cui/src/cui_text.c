@@ -214,6 +214,66 @@ cui_font cui_font_load_file(cui_ctx *ui, const char *path) {
     return id;
 }
 
+/* 各平台常见中文字体候选（按优先级；第一条存在的就用）。
+ * Windows: 微软雅黑（ttc 第 0 face = Regular）→ 黑体 → 等线 → 宋体
+ * macOS:   苹方 → 华文黑体
+ * Linux:   Noto CJK / 文泉驿 / Droid Sans Fallback */
+static const char *cui__system_cjk_path(void) {
+#if defined(_WIN32)
+    static char buf[512];
+    const char *win = getenv("WINDIR");
+    static const char *const rel[] = {
+        "\\Fonts\\msyh.ttc", "\\Fonts\\msyh.ttf", "\\Fonts\\simhei.ttf",
+        "\\Fonts\\Deng.ttf", "\\Fonts\\simsun.ttc",
+        "\\Fonts\\msyhl.ttc", "\\Fonts\\simkai.ttf",
+    };
+    for (size_t i = 0; i < sizeof rel / sizeof rel[0]; i++) {
+        snprintf(buf, sizeof buf, "%s%s", win ? win : "C:\\Windows", rel[i]);
+        FILE *f = fopen(buf, "rb");
+        if (f) { fclose(f); return buf; }
+    }
+    return NULL;
+#elif defined(__APPLE__)
+    static const char *const p[] = {
+        "/System/Library/Fonts/PingFang.ttc",
+        "/System/Library/Fonts/STHeiti Light.ttc",
+        "/Library/Fonts/Arial Unicode.ttf",
+    };
+    for (size_t i = 0; i < sizeof p / sizeof p[0]; i++) {
+        FILE *f = fopen(p[i], "rb");
+        if (f) { fclose(f); return p[i]; }
+    }
+    return NULL;
+#else
+    static const char *const p[] = {
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf",
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+        "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+        "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc",
+    };
+    for (size_t i = 0; i < sizeof p / sizeof p[0]; i++) {
+        FILE *f = fopen(p[i], "rb");
+        if (f) { fclose(f); return p[i]; }
+    }
+    return NULL;
+#endif
+}
+
+/* 系统 CJK 字体，每上下文只探测/加载一次：文本缺字时由 cui__find_glyph 自动
+ * 调用（中文默认可显，无需调用方挂 fallback）；显式调用（fontLoadSystem）同
+ * 样走这里，返回缓存的字体 id。找不到返回 -1，不抛。 */
+cui_font cui_font_load_system_cjk(cui_ctx *ui) {
+    if (ui->auto_cjk_done) return ui->auto_cjk_font;
+    ui->auto_cjk_done = true;
+    ui->auto_cjk_font = -1;
+    const char *p = cui__system_cjk_path();
+    if (p) ui->auto_cjk_font = cui_font_load_file(ui, p);
+    return ui->auto_cjk_font;
+}
+
 void cui_font_set_role(cui_ctx *ui, cui_font role, cui_font font) {
     if (role < 0 || role >= 5) return;
     int real = cui__resolve_font(ui, font);
@@ -313,6 +373,7 @@ static int cui__glyph_index(cui_font_data *fd, uint32_t cp) {
 static void cui__find_glyph(cui_ctx *ui, cui_font font, uint32_t cp, cui_font *out_font, int *out_gi) {
     cui_font_data *fd = cui__fd(ui, font);
     if (!fd) { *out_font = -1; *out_gi = 0; return; }
+retry:;
     int gi = cui__glyph_index(fd, cp);
     if (gi || cp == ' ') { *out_font = font; *out_gi = gi; return; }
     for (int i = 0; i < fd->fallback_count; i++) {
@@ -330,6 +391,10 @@ static void cui__find_glyph(cui_ctx *ui, cui_font font, uint32_t cp, cui_font *o
         int g2 = cui__glyph_index(&ui->fonts[i], cp);
         if (g2) { *out_font = i; *out_gi = g2; return; }
     }
+    /* 所有已加载字体都缺这个字：装入系统 CJK 字体后重查一次（中文默认可显，
+     * 调用方无需手动 fontLoadSystem + fontAddFallback）。auto_cjk_done 在
+     * 加载函数内只会置位一次，二次 miss 直接落 .notdef，不会循环。 */
+    if (cp >= 0x80 && !ui->auto_cjk_done && cui_font_load_system_cjk(ui) >= 0) goto retry;
     *out_font = font;
     *out_gi = 0;
 }
@@ -385,6 +450,7 @@ typedef struct {
     float center_off;/* tabular centering offset */
     int start, end;  /* byte range */
     float track;     /* extra advance per glyph (points) */
+    bool emoji;      /* this unit is a whole emoji sequence drawn by cui_emoji.c */
 } cui__glyph_iter;
 
 static void cui__iter_init(cui__glyph_iter *it, cui_ctx *ui, cui_font font, float size, const char *s, int len, bool tab) {
@@ -402,6 +468,21 @@ static bool cui__iter_next(cui__glyph_iter *it) {
     it->start = it->pos;
     it->end = it->pos + n;
     it->pos += n;
+    /* 彩色 emoji：整段序列（含 ZWJ 连接、肤色、变体选择符）作为一个整宽单元，
+     * 交给 emoji 子系统。width/wrap/hit/ellipsis 都基于本迭代器，因此都不会
+     * 在序列中间切开。序列不可渲染时回到普通路径。 */
+    it->emoji = false;
+    int elen = cui__em_seq_len(ui, it->s + it->start, it->len - it->start);
+    if (elen > 0) {
+        it->end = it->pos = it->start + elen;
+        it->cp = cp; it->gi = 0; it->gfont = it->font; it->gsize = it->size;
+        it->center_off = 0; it->emoji = true;
+        it->gx = it->x;
+        it->adv = it->size;                     /* 整宽一格，与 CJK 同列 */
+        it->x += it->adv;
+        it->prev_cp = cp; it->prev_gi = 0; it->prev_font = -1;   /* 序列两侧不做 kern */
+        return true;
+    }
     cui_font gf; int gi;
     cui__find_glyph(ui, it->font, cp, &gf, &gi);
     if (gf < 0) return false;
@@ -1140,6 +1221,20 @@ static void cui__draw_run(cui_ctx *ui, cui_font font, float size, float x, float
     cui__iter_init(&it, ui, font, size, text, len, tabular);
     while (cui__iter_next(&it)) {
         if (it.gx + x > max_x) break;
+        if (it.emoji) {
+            /* r 用逻辑点坐标，cui__em_draw 内部按 scale 上屏 */
+            cui_color gc = color;
+            float dy = 0;
+            if (ui->text_fx) {
+                gc = ui->text_fx(ui, ui->text_fx_data, ui->text_fx_base + it.start, x + it.gx, ui->text_fx_line_y, &dy, color);
+                if (gc.a == 0) continue;
+            }
+            if (gc.a > 0) {
+                cui_rect r = { x + it.gx, y + dy, it.adv, it.size };
+                cui__em_draw(ui, text + it.start, it.end - it.start, r, gc.a, NULL);
+            }
+            continue;
+        }
         if (it.cp == ' ' || it.cp == '\n' || it.cp == '\t' || !it.gi) continue;
         float gs_px = it.gsize * s;
         float pen = (x + it.gx + it.center_off) * s;

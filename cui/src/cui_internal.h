@@ -99,6 +99,9 @@ cui__tt *cui__tt_open(cui_ctx *ui, const unsigned char *data, int offset);
 void cui__tt_vmetrics(cui__tt *t, int *ascent, int *descent);
 bool cui__tt_box(cui__tt *t, int gid, float scale, int *x0, int *y0, int *x1, int *y1);
 void cui__tt_render(cui__tt *t, int gid, float scale, unsigned char *out, int w, int h, int stride);
+/* inline color emoji: the text pipeline (cui_text.c) hands whole sequences to cui_emoji.c */
+int cui__em_seq_len(cui_ctx *ui, const char *s, int len);   /* sequence byte length at s, 0 = none it can draw */
+bool cui__em_draw(cui_ctx *ui, const char *utf8, int len, cui_rect r, float alpha, bool *missing);   /* r in points */
 
 /* ---- utf8 ---- */
 int cui__utf8_decode(const char *s, int len, uint32_t *cp);   /* returns bytes consumed (>=1) */
@@ -544,6 +547,8 @@ struct cui_ctx {
 #endif
     bool text_unshaped;             /* editing keeps logical glyph positions */
     cui_font_data *fonts; int font_count, font_cap;
+    bool auto_cjk_done;             /* the system CJK font was looked for once (cui_text.c) */
+    cui_font auto_cjk_font;         /* and this is what it gave (-1 = none found) */
     cui_font roles[5];
     cui_glyph *glyphs; int glyph_count, glyph_cap;
     int glyph_buckets[4096];

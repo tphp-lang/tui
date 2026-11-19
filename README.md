@@ -38,29 +38,31 @@ while ($app->frame()) {                        // 渲染上一段 + 等事件 + 
 $app->destroy();
 ```
 
-### 中文（CJK）显示
+### 中文与 emoji（默认支持）
 
-内嵌字体（Inter / Geist / Lucide）是**拉丁子集**——实测汉字覆盖率 0/20992，直接写中文
-只会得到等宽豆腐块。CUI 的 fallback 链在找不到字形时会遍历全部已加载字体，所以
-**装一个含 CJK 字形的系统字体即可**，无需替换内嵌字体：
+内嵌字体（Inter / Geist / Lucide）是**拉丁子集**——实测汉字覆盖率 0/20992，但这不影响使用：
+
+- **中文**：任何文本缺字时，引擎自动探测并装入系统 CJK 字体（雅黑/黑体/苹方/Noto CJK，
+  每窗口上下文一次），直接写中文即可显示，**无需任何设置**。
+- **emoji**：文本管线会把整段 emoji 序列（含 ZWJ 组合 👨‍👩‍👧‍👦、肤色、国旗、键帽）交给
+  emoji 子系统，自动加载系统彩色 emoji 字体（Segoe UI Emoji / Apple Color Emoji /
+  Noto Color Emoji）后按彩色位图绘制；序列在换行与省略号处永不被拆开。
+
+需要自定义字体时，相关接口仍然可用：
 
 ```php
 use Tphp\Tui\FontRole;
 
-$app = new App("中文界面", 900, 600);
-$cjk = $app->fontLoadSystem();          // 自动探测：雅黑/黑体/苹方/Noto CJK；-1 = 没找到
-if ($cjk >= 0) {
-    foreach ([FontRole::Body, FontRole::Medium,
-              FontRole::Display, FontRole::Mono] as $role) {
-        $app->fontAddFallback($role, $cjk);   // 该 role 缺字时回退到中文字体
-    }
-}
-// 也可指定字体文件，或整体替换某个 role：
-//   $f = $app->fontLoad("C:/Windows/Fonts/simhei.ttf");   // 失败抛 RuntimeException
-//   $app->fontSetRole(FontRole::Body, $f);
+$app = new App("自定义字体", 900, 600);
+// 指定字体文件，或整体替换某个 role：
+$f = $app->fontLoad("C:/Windows/Fonts/simhei.ttf");   // 失败抛 RuntimeException
+$app->fontSetRole(FontRole::Body, $f);
+// 也可为某个 role 挂指定回退（默认的自动 CJK 加载仍会在缺字时兜底）：
+$app->fontAddFallback(FontRole::Mono, $f);
 ```
 
-- `fontLoadSystem(path="")`：无参按平台探测，给了 `path` 就用它；**加载失败返回 -1，不抛**。
+- `fontLoadSystem(path="")`：无参返回系统 CJK 字体 id（与缺字自动加载共用缓存，重复调用同 id），
+  给了 `path` 就加载它；**加载失败返回 -1，不抛**。
 - `fontAddFallback(font, fallback)`：首参是 `FontRole` 枚举，也接受 `fontLoad()` 返回的字体 id；
   每个字体最多挂 4 个回退（CUI 限制）。
 - `FontRole` 枚举 = `Body`(0) / `Medium`(1) / `Display`(2) / `Mono`(3) / `Icons`(4)，

@@ -4,18 +4,11 @@
 
 use Tphp\Tui\App;
 use Tphp\Tui\ButtonVariant;
-use Tphp\Tui\FontRole;
 
 
 $app = new App("Hello", 420, 300);
 
-// 中文字形：内嵌字体是拉丁子集，装一个含 CJK 的系统字体并设为回退
-$cjk = $app->fontLoadSystem();          // -1 = 本机没找到
-if ($cjk >= 0) {
-    foreach ([FontRole::Body, FontRole::Medium, FontRole::Display, FontRole::Mono] as $role) {
-        $app->fontAddFallback($role, $cjk);
-    }
-}
+// 中文与 emoji 默认可显：缺字时引擎自动装入系统 CJK 字体，无需手动挂回退
 
 $notifications = true;
 $clicks = 0;
@@ -23,7 +16,7 @@ $clicks = 0;
 while ($app->frame()) {
     $app->layout()->columnBegin(32, 16);
     $app->heading("你好，CUI 界面", 2);
-    $app->secondary("中文与 English 混排都不再是豆腐块。");
+    $app->secondary("中文与 English 混排都不再是豆腐块，emoji 也直接可用 🎉。");
     $notifications = $app->widgets()->toggle("启用通知", $notifications);
     $app->layout()->rowBegin(8);
     if ($app->widgets()->button("点我", ButtonVariant::Primary)) {

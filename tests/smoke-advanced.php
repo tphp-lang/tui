@@ -88,6 +88,10 @@ check(is_array($ep) && array_key_exists("picked", $ep), "emojiPicker-result");
 check(is_bool($app->content()->emojiSupported("\u{1F600}")), "emojiSupported-bool");
 check(is_bool($app->content()->emojiFontLoadSystem()), "emojiFontLoadSystem-bool");
 
+// 文本内联中文与彩色 emoji：缺字自动装 CJK 字体、整段 emoji 序列交子系统（单帧不崩）
+$app->text("中文内联 😀 👍 世界");
+$app->text("ZQ family 👨‍👩‍👧‍👦 flag 🇨🇳 keycap 1️⃣");
+
 // 社交 / 评论
 $app->content()->chatMessage("Hello there!", true, "Ada", false);
 $app->content()->chatDivider("Today");

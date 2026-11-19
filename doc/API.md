@@ -21,7 +21,7 @@
 | `text` | `string` `$text` 文本 | - | 正文文本 |
 | `label` | `string` `$text` 文本 | - | 标签文本 |
 | `fontLoad` | `string` `$path` 字体文件路径 | int | 加载 .ttf/.otf/.ttc（ttc 取第 0 face）；失败抛 RuntimeException |
-| `fontLoadSystem` | `string` `$path` = NULL 指定路径（留空则按平台探测） | int | 探测系统 CJK 字体；失败返回 -1，不抛 |
+| `fontLoadSystem` | `string` `$path` = NULL 指定路径（留空则按平台探测） | int | 系统 CJK 字体（缺字时引擎已自动加载，同 id 缓存）；失败返回 -1，不抛 |
 | `fontSetRole` | `FontRole` `$role` 字体角色 <br> `int` `$font` 字体 id | - | 让某个 role 改用指定字体 |
 | `fontAddFallback` | `FontRole` `$font` 目标角色 <br> `int` `$fallback` 回退字体 id | - | 缺字时回退；每字体最多 4 个 |
 | `savePng` | `string` `$path` 输出路径 | bool | 保存当前帧为 PNG；隐藏窗口亦可 |
